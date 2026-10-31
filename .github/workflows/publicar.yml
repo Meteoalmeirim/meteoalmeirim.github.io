@@ -34,7 +34,8 @@ jobs:
           REPO: ${{ github.event.repository.name }}
         run: |
           # Endereço público atual da página (site de utilizador/organização ou de projeto)
-          if [ "$REPO" = "$OWNER.github.io" ]; then SITE="https://$REPO"; else SITE="https://$OWNER.github.io/$REPO"; fi
+          OWNER_LC=$(echo "$OWNER" | tr "[:upper:]" "[:lower:]"); REPO_LC=$(echo "$REPO" | tr "[:upper:]" "[:lower:]")
+          if [ "$REPO_LC" = "$OWNER_LC.github.io" ]; then SITE="https://$REPO_LC"; else SITE="https://$OWNER_LC.github.io/$REPO"; fi
           PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
