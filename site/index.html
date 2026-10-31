@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Estação Meteorológica IALMEI2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: leitura do instrumento primeiro (temperatura grande), depois mostradores em grelha, depois as últimas 24 h em gráficos. */
+:root{
+  --bg:#eef1f2; --surface:#ffffff; --line:#d5dcdf; --fg:#17242b; --muted:#5b6b73;
+  --accent:#1f5f7a; --warm:#c46a1b; --cool:#3b7fa3; --rain:#2f6fb8; --dew:#6a8f62;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1719; --surface:#162226; --line:#26363c; --fg:#e6eef0; --muted:#94a7ae;
+  --accent:#6fb7d6; --warm:#eb9a4e; --cool:#7cb9db; --rain:#6aa6ea; --dew:#9cc28f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1719; --surface:#162226; --line:#26363c; --fg:#e6eef0; --muted:#94a7ae;
+  --accent:#6fb7d6; --warm:#eb9a4e; --cool:#7cb9db; --rain:#6aa6ea; --dew:#9cc28f; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1040px;margin:0 auto;padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:28px}
+header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,34px);line-height:1.1;margin:4px 0 0;text-wrap:balance}
+.status{font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:#2e9b5b}.dot.old{background:#d39b1c}.dot.err{background:#c8423b}
+.hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:24px;align-items:end}
+.temp{font-family:var(--display);font-weight:500;font-size:clamp(84px,17vw,150px);line-height:.9;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.temp sup{font-size:.35em;vertical-align:top;margin-left:4px;color:var(--muted);font-weight:500}
+.sub{color:var(--muted);margin-top:10px;display:flex;flex-wrap:wrap;gap:6px 18px}
+.sub b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+.range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.range div{background:var(--surface);padding:12px 14px}
+.range .v{font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums}
+.range .k{font-size:12px;color:var(--muted)}
+.hi{color:var(--warm)}.lo{color:var(--cool)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card h2{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0}
+.big{font-family:var(--mono);font-size:30px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
+.big small{font-size:14px;color:var(--muted);margin-left:4px}
+.note{font-size:13px;color:var(--muted)}
+.windrow{display:flex;gap:14px;align-items:center}
+.compass{width:84px;height:84px;flex:none}
+.bar{height:6px;background:var(--line);position:relative;margin-top:4px}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent)}
+section h3{font-family:var(--display);font-weight:700;font-size:20px;margin:0 0 12px}
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.chart{background:var(--surface);border:1px solid var(--line);padding:14px 14px 8px;min-width:0}
+.chart .hd{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.chart .hd span{font-size:13px;font-weight:600}
+.chart .hd em{font-style:normal;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.chart svg{display:block;width:100%;height:170px;margin-top:6px}
+.chart text{font-family:var(--mono);font-size:10px;fill:var(--muted)}
+.err{background:var(--surface);border:1px solid #c8423b;padding:14px 16px}
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between}
+footer a{color:var(--accent)}
+.avisos{display:flex;flex-direction:column;gap:8px}
+.aviso{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--lvl);padding:12px 14px}
+.aviso .t{font-weight:600}.aviso .t span{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--lvl);margin-right:8px}
+.aviso .w{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.aviso p{margin:6px 0 0;font-size:14px}
+.lv-yellow{--lvl:#d4a20b}.lv-orange{--lvl:#e2701b}.lv-red{--lvl:#d1332b}
+.ok-box{background:var(--surface);border:1px solid var(--line);border-left:6px solid #2e9b5b;padding:12px 14px}
+.rcmwrap{overflow-x:auto}
+.rcm{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line)}
+.rcm th,.rcm td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+.rcm th{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.rcm tr.me td:first-child{font-weight:700}
+.chip{display:inline-block;padding:3px 10px;font-size:13px;font-weight:600;white-space:nowrap}
+.r1{background:#3f9e4d;color:#fff}.r2{background:#f2d43b;color:#1d1d1d}.r3{background:#ee8a24;color:#1d1d1d}.r4{background:#d52b24;color:#fff}.r5{background:#6e1210;color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+.radar{border:1px solid var(--line);background:var(--surface);aspect-ratio:4/3;max-width:100%;max-height:560px;width:100%}
+.radar iframe{width:100%;height:100%;border:0;display:block}
+.links{margin-top:8px}.links a{color:var(--accent)}
+/* secções com mapa */
+.sec-hd{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 16px;margin-bottom:12px}
+.sec-hd h3{margin:0}
+.seg{display:inline-flex;border:1px solid var(--line);background:var(--surface)}
+.seg button{font:500 13px var(--body);color:var(--muted);background:none;border:0;padding:7px 12px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-selected="true"]{background:var(--accent);color:var(--bg)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mapbox{height:420px;max-width:100%;border:1px solid var(--line);background:var(--surface);position:relative;z-index:0}
+.mapbox.tall{height:480px}
+.map-fallback{padding:16px}
+.leaflet-container{font-family:var(--body);background:var(--surface)}
+.leaflet-tooltip{font:13px/1.4 var(--body);border-radius:0;border:1px solid var(--line);background:var(--surface);color:var(--fg);box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.leaflet-tooltip:before{display:none}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{border-radius:2px;background:var(--surface);color:var(--fg)}
+.leaflet-popup-content{margin:12px 14px;font:13px/1.45 var(--body)}
+.leaflet-container a.leaflet-popup-close-button{color:var(--muted)}
+.leaflet-control-attribution{font-size:10px}
+.legend b.lg{display:inline-grid;place-items:center;width:18px;height:18px;margin-right:5px;font-size:12px;color:#fff;vertical-align:-3px}
+.lg.up{background:#c8423b}.lg.down{background:#2e8b57}.lg.flat{background:#6b7b82}.lg.dam{background:var(--accent);color:var(--bg)!important;font-size:10px!important}
+.lv-sw{border:1px solid var(--line)}
+.lv-sw.lv-green{background:#3f9e4d;opacity:.5}.lv-sw.lv-yellow{background:#f2c522}.lv-sw.lv-orange{background:#f08a24}.lv-sw.lv-red{background:#d6322b}
+.wx{width:16px;height:16px;flex:none}
+.lg-ico{width:14px;height:14px;margin-right:4px;vertical-align:-2px;color:var(--fg)}
+.t-ico{width:18px;height:18px;vertical-align:-4px;margin-right:6px;color:var(--lvl)}
+.wxrow{display:flex;gap:3px}
+.wxb{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--c);color:#1a1a1a;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.wxb .wx{width:13px;height:13px}
+.maplabel span{display:inline-block;transform:translate(-50%,-50%);font:600 11px var(--body);color:#1a1a1a;white-space:nowrap;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff}
+.maplabel.me span{font-size:13px;font-weight:700}
+.leaflet-div-icon.maplabel,.leaflet-div-icon.wxm,.leaflet-div-icon.pinwrap{background:none;border:0}
+/* marcadores do Tejo */
+.pin{position:relative;width:14px;height:14px}
+.pin .dot{position:absolute;inset:0;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);background:#6b7b82}
+.pin.up .dot{background:#c8423b}.pin.down .dot{background:#2e8b57}.pin.dam .dot{background:#1f5f7a;border-radius:3px}
+.pin .tag{position:absolute;display:flex;flex-direction:column;align-items:flex-start;gap:0;padding:3px 7px;background:var(--surface);color:var(--fg);border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.18);white-space:nowrap;line-height:1.2;pointer-events:auto;cursor:pointer}
+.pin .nm{font:600 11px var(--body);color:var(--muted)}
+.pin .vl{font:500 13px var(--mono);font-variant-numeric:tabular-nums}
+.pin .vl small{font-size:10px;color:var(--muted);margin-left:2px}
+.pin .vl b{margin-right:3px}
+.pin.up .vl b{color:#c8423b}.pin.down .vl b{color:#2e8b57}.pin.flat .vl b{color:var(--muted)}
+.pin.old .tag{opacity:.6}
+.side-r .tag{left:18px;top:50%;transform:translateY(-50%)}
+.side-l .tag{right:18px;top:50%;transform:translateY(-50%)}
+.side-t .tag{bottom:18px;left:50%;transform:translateX(-50%)}
+.side-b .tag{top:18px;left:50%;transform:translateX(-50%)}
+.pop table{border-collapse:collapse;margin:6px 0}
+.pop td{padding:2px 10px 2px 0;font-variant-numeric:tabular-nums}
+.pop td:first-child{color:var(--muted)}
+.pop a{color:var(--accent)}
+details.more{margin-top:12px}
+details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:6px 0}
+@media (max-width:600px){
+  .mapbox{height:340px}.mapbox.tall{height:420px}
+  .pin .nm{display:none}
+  .pin .tag{padding:2px 5px}
+}
+.sub-h{font-size:13px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.sub-h span{font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
+.tejo-main{margin-top:10px}
+.hydro td{font-variant-numeric:tabular-nums;white-space:nowrap}
+.hydro td:first-child{white-space:normal;min-width:120px}
+.hydro td:first-child a{color:var(--fg);text-decoration:none;font-weight:600}
+.hydro td:first-child a:hover{text-decoration:underline}
+.hydro td:first-child small{display:block;color:var(--muted);font-size:12px;font-weight:400}
+.hydro .num{font-family:var(--mono)}
+.hydro .num small{color:var(--muted);margin-left:3px}
+.up{color:#c8423b}.down{color:#2e8b57}.flat{color:var(--muted)}
+.stale{color:#b07d10;font-size:12px}
+.spark{width:120px;height:30px;display:block}
+.pct{display:flex;align-items:center;gap:8px}
+.pct .bar{width:70px;margin:0}
+@media (max-width:820px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.charts{grid-template-columns:minmax(0,1fr)}.hero{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:420px){.grid{grid-template-columns:minmax(0,1fr)}}
+*{box-sizing:border-box}body{margin:0}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Estação IALMEI2 · Bresser 5 em 1</div>
+      <h1 id="place">Estação Meteorológica</h1>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="updated">A ligar à estação…</span></div>
+  </header>
+
+  <div id="error" class="err" hidden></div>
+
+  <div class="hero">
+    <div>
+      <div class="temp"><span id="t">--</span><sup>°C</sup></div>
+      <div class="sub">
+        <span>Sensação <b id="feels">--</b></span>
+        <span>Ponto de orvalho <b id="dew">--</b></span>
+      </div>
+    </div>
+    <div class="range">
+      <div><div class="k">Máxima hoje</div><div class="v hi" id="tmax">--</div></div>
+      <div><div class="k">Mínima hoje</div><div class="v lo" id="tmin">--</div></div>
+      <div><div class="k">Rajada máx. hoje</div><div class="v" id="gmax">--</div></div>
+      <div><div class="k">Chuva hoje</div><div class="v" id="rtoday">--</div></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Vento</h2>
+      <div class="windrow">
+        <svg class="compass" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="44" fill="none" stroke="var(--line)" stroke-width="2"/>
+          <g fill="var(--muted)" font-family="IBM Plex Mono,monospace" font-size="11" text-anchor="middle">
+            <text x="50" y="17">N</text><text x="86" y="54">E</text><text x="50" y="92">S</text><text x="14" y="54">O</text>
+          </g>
+          <g id="needle" transform="rotate(0 50 50)">
+            <path d="M50 22 L57 52 L50 46 L43 52 Z" fill="var(--accent)"/>
+          </g>
+        </svg>
+        <div>
+          <div class="big"><span id="ws">--</span><small>km/h</small></div>
+          <div class="note">de <b id="wd">--</b> · rajada <b id="wg">--</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Humidade</h2>
+      <div class="big"><span id="hum">--</span><small>%</small></div>
+      <div class="bar"><i id="humbar" style="width:0"></i></div>
+    </div>
+    <div class="card">
+      <h2>Pressão</h2>
+      <div class="big"><span id="pres">--</span><small>hPa</small></div>
+      <div class="note" id="ptrend">tendência 3 h: --</div>
+    </div>
+    <div class="card">
+      <h2>Chuva</h2>
+      <div class="big"><span id="rain">--</span><small>mm hoje</small></div>
+      <div class="note">intensidade <b id="rrate">--</b> mm/h</div>
+    </div>
+  </div>
+
+  <section>
+    <h3>Últimas 24 horas</h3>
+    <div class="charts">
+      <div class="chart"><div class="hd"><span>Temperatura e ponto de orvalho</span><em id="c1">°C</em></div><svg id="chTemp"></svg></div>
+      <div class="chart"><div class="hd"><span>Vento médio e rajada</span><em id="c2">km/h</em></div><svg id="chWind"></svg></div>
+      <div class="chart"><div class="hd"><span>Pressão</span><em id="c3">hPa</em></div><svg id="chPres"></svg></div>
+      <div class="chart"><div class="hd"><span>Chuva acumulada</span><em id="c4">mm</em></div><svg id="chRain"></svg></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-hd">
+      <h3>Rio Tejo · caudais e barragens</h3>
+      <span class="note" id="tejoInfo">A carregar dados da APA…</span>
+    </div>
+    <div class="mapbox tall" id="mapTejo" role="img" aria-label="Mapa do rio Tejo com os caudais e as barragens"></div>
+    <div class="legend">
+      <span><b class="lg up">↑</b>a subir</span><span><b class="lg flat">→</b>estável</span><span><b class="lg down">↓</b>a descer</span>
+      <span><b class="lg dam">%</b>barragem: armazenamento</span>
+      <span>Toque num ponto para ver o detalhe.</span>
+    </div>
+    <div class="chart tejo-main">
+      <div class="hd"><span id="tejoMainTitle">Caudal no Tejo · últimas 72 horas</span><em id="tejoMainUnit">m³/s</em></div>
+      <svg id="chTejo"></svg>
+    </div>
+    <details class="more">
+      <summary>Ver todos os valores em tabela</summary>
+      <h4 class="sub-h">Estações no rio <span>montante → jusante</span></h4>
+      <div class="rcmwrap"><table class="rcm hydro">
+        <thead><tr><th>Estação</th><th>Caudal</th><th>Nível</th><th>Tendência 3 h</th><th class="spark-col">72 h</th><th>Leitura</th></tr></thead>
+        <tbody id="rioBody"></tbody>
+      </table></div>
+      <h4 class="sub-h">Barragens <span>montante → jusante</span></h4>
+      <div class="rcmwrap"><table class="rcm hydro">
+        <thead><tr><th>Barragem</th><th>Armazenamento</th><th>Cota</th><th>Descarga</th><th>Afluência</th><th>Leitura</th></tr></thead>
+        <tbody id="barBody"></tbody>
+      </table></div>
+    </details>
+    <div class="note links">Fonte: <a href="https://infoagua.apambiente.pt/pt/cheias/cheias-pesquisa" target="_blank" rel="noopener">APA · InfoÁgua / SNIRH</a>, rede de vigilância e alerta de cheias. Dados provisórios, recolhidos de 30 em 30 minutos. Posição dos pontos aproximada.</div>
+  </section>
+
+  <section>
+    <div class="sec-hd">
+      <h3>Avisos meteorológicos</h3>
+      <div class="seg" id="avDays" role="tablist" aria-label="Dia dos avisos"></div>
+    </div>
+    <div class="mapbox" id="mapAvisos" role="img" aria-label="Mapa de Portugal continental com os avisos por distrito"></div>
+    <div class="legend">
+      <span><i class="lv-sw lv-green"></i>Sem aviso</span><span><i class="lv-sw lv-yellow"></i>Amarelo</span><span><i class="lv-sw lv-orange"></i>Laranja</span><span><i class="lv-sw lv-red"></i>Vermelho</span>
+    </div>
+    <div class="legend" id="avIcons"></div>
+    <h4 class="sub-h">Distrito de Santarém</h4>
+    <div id="avisos" class="avisos"><div class="note">A carregar avisos do IPMA…</div></div>
+  </section>
+
+  <section>
+    <div class="sec-hd">
+      <h3>Risco de incêndio</h3>
+      <div class="seg" id="rcmDays" role="tablist" aria-label="Dia do risco"></div>
+    </div>
+    <div class="mapbox" id="mapRCM" role="img" aria-label="Mapa do risco de incêndio nos concelhos do distrito de Santarém"></div>
+    <div class="legend">
+      <span><i class="r1"></i>Reduzido</span><span><i class="r2"></i>Moderado</span><span><i class="r3"></i>Elevado</span><span><i class="r4"></i>Muito elevado</span><span><i class="r5"></i>Máximo</span>
+    </div>
+    <div class="note links">Risco de incêndio rural do IPMA por concelho, distrito de Santarém. Toque num concelho para ver o nome e o risco.</div>
+  </section>
+
+  <section>
+    <h3>Radar de chuva e trovoada</h3>
+    <div class="radar">
+      <iframe title="Radar de precipitação e trovoada" loading="lazy"
+        src="https://embed.windy.com/embed2.html?lat=39.21&lon=-8.63&detailLat=39.21&detailLon=-8.63&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=true&calendar=now&type=map&location=coordinates&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1"></iframe>
+    </div>
+    <div class="note links">Mais detalhe:
+      <a href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">radar do IPMA</a> ·
+      <a href="https://www.lightningmaps.org/?lang=pt#m=oss;t=3;s=0;o=0;b=;ts=0;y=39.21;x=-8.63;z=8;d=2;dl=2;dc=0;" target="_blank" rel="noopener">trovoadas em tempo real (Blitzortung)</a>
+    </div>
+  </section>
+
+  <footer>
+    <span>Dados da estação via Weather Underground · atualiza a cada 5 minutos</span>
+    <a href="https://www.wunderground.com/dashboard/pws/IALMEI2" target="_blank" rel="noopener">Ver no Weather Underground</a>
+  </footer>
+</div>
+
+<script>
+const STATION="IALMEI2", KEY="d7aefc1ae3ce4a08aefc1ae3ce3a0856";
+const BASE="https://api.weather.com/v2/pws/observations/";
+const q=`stationId=${STATION}&format=json&units=m&numericPrecision=decimal&apiKey=${KEY}`;
+const $=id=>document.getElementById(id);
+const f=(v,d=1)=>v==null||isNaN(v)?"--":Number(v).toFixed(d).replace(".",",");
+const DIRS=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSO","SO","OSO","O","ONO","NO","NNO"];
+const dirName=d=>d==null?"--":DIRS[Math.round(d/22.5)%16];
+const hhmm=ms=>new Date(ms).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Lisbon"});
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let history=[];
+
+async function getJSON(url){
+  const r=await fetch(url);
+  if(r.status===204) throw new Error("A estação não enviou dados recentes para o Weather Underground.");
+  if(r.status===401) throw new Error("A chave da API não foi aceite pelo Weather Underground.");
+  if(!r.ok) throw new Error("O Weather Underground respondeu com erro "+r.status+".");
+  return r.json();
+}
+
+async function load(){
+  try{
+    const [cur,day]=await Promise.all([getJSON(BASE+"current?"+q),getJSON(BASE+"all/1day?"+q)]);
+    $("error").hidden=true;
+    history=(day.observations||[]).map(o=>({t:o.epoch*1000,temp:o.metric.tempAvg,tmax:o.metric.tempHigh,tmin:o.metric.tempLow,
+      dew:o.metric.dewptAvg,ws:o.metric.windspeedAvg,wg:o.metric.windgustHigh,p:o.metric.pressureMax,rain:o.metric.precipTotal}))
+      .sort((a,b)=>a.t-b.t);
+    renderCurrent(cur.observations[0]);
+    renderCharts();
+  }catch(e){
+    $("error").hidden=false;
+    $("error").textContent="Não foi possível obter os dados. "+(e.message||"Verifica a ligação à internet.")+" A página volta a tentar em 5 minutos.";
+    $("dot").className="dot err";$("updated").textContent="Sem ligação";
+  }
+}
+
+function renderCurrent(o){
+  const m=o.metric, ms=o.epoch*1000;
+  if(o.neighborhood) $("place").textContent=o.neighborhood;
+  const age=(Date.now()-ms)/60000;
+  $("dot").className="dot "+(age<20?"ok":"old");
+  $("updated").textContent="Leitura das "+hhmm(ms)+(age>=20?" · sem dados recentes":"");
+  $("t").textContent=f(m.temp);
+  const feels=m.temp>=27?m.heatIndex:(m.temp<=10?m.windChill:m.temp);
+  $("feels").textContent=f(feels)+" °C";
+  $("dew").textContent=f(m.dewpt)+" °C";
+  $("ws").textContent=f(m.windSpeed);
+  $("wg").textContent=f(m.windGust)+" km/h";
+  $("wd").textContent=dirName(o.winddir);
+  $("needle").setAttribute("transform",`rotate(${(o.winddir||0)+180} 50 50)`);
+  $("hum").textContent=f(o.humidity,0);
+  $("humbar").style.width=(o.humidity||0)+"%";
+  $("pres").textContent=f(m.pressure);
+  $("rain").textContent=f(m.precipTotal);
+  $("rtoday").textContent=f(m.precipTotal)+" mm";
+  $("rrate").textContent=f(m.precipRate);
+  // máximos e mínimos de hoje (dia local)
+  const today=new Date(ms).toLocaleDateString("pt-PT",{timeZone:"Europe/Lisbon"});
+  const h=history.filter(x=>new Date(x.t).toLocaleDateString("pt-PT",{timeZone:"Europe/Lisbon"})===today);
+  if(h.length){
+    $("tmax").textContent=f(Math.max(...h.map(x=>x.tmax),m.temp))+" °C";
+    $("tmin").textContent=f(Math.min(...h.map(x=>x.tmin),m.temp))+" °C";
+    $("gmax").textContent=f(Math.max(...h.map(x=>x.wg??0),m.windGust??0))+" km/h";
+  }
+  const past=history.filter(x=>x.t<=ms-3*3600e3).pop();
+  if(past&&m.pressure!=null){
+    const d=m.pressure-past.p, s=(d>0?"+":"")+f(d)+" hPa";
+    $("ptrend").textContent="tendência 3 h: "+s+(Math.abs(d)<1?" · estável":d>0?" · a subir":" · a descer");
+  }
+}
+
+function chart(svg,series,{zero=false,fill=null,pad=1}={}){
+  const W=svg.clientWidth||500,H=170,L=34,R=8,T=8,B=20;
+  const pts=series.flatMap(s=>s.data).filter(p=>p.v!=null);
+  if(!pts.length){svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle">Sem dados</text>`;return}
+  const t0=Math.min(...pts.map(p=>p.t)),t1=Math.max(...pts.map(p=>p.t));
+  let lo=Math.min(...pts.map(p=>p.v)),hi=Math.max(...pts.map(p=>p.v));
+  if(zero)lo=0; if(hi-lo<pad){const c=(hi+lo)/2;hi=c+pad/2;lo=zero?0:c-pad/2}
+  const sx=t=>L+(t-t0)/(t1-t0||1)*(W-L-R), sy=v=>T+(1-(v-lo)/(hi-lo))*(H-T-B);
+  const line=css("--line");
+  let out=`<svg viewBox="0 0 ${W} ${H}">`;
+  for(let i=0;i<=3;i++){const v=lo+(hi-lo)*i/3,y=sy(v);
+    out+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="${line}" stroke-width="1"/><text x="${L-6}" y="${y+3}" text-anchor="end">${f(v,hi-lo<6?1:0)}</text>`}
+  const step=6*3600e3;let tk=Math.ceil(t0/step)*step;
+  for(;tk<=t1;tk+=step){out+=`<text x="${sx(tk)}" y="${H-5}" text-anchor="middle">${hhmm(tk)}</text>`}
+  series.forEach((s,i)=>{
+    const d=s.data.filter(p=>p.v!=null);
+    const path=d.map((p,j)=>(j?"L":"M")+sx(p.t).toFixed(1)+" "+sy(p.v).toFixed(1)).join("");
+    if(i===0&&fill) out+=`<path d="${path}L${sx(d[d.length-1].t)} ${sy(lo)}L${sx(d[0].t)} ${sy(lo)}Z" fill="${s.color}" fill-opacity=".14"/>`;
+    out+=`<path d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.w||2}" ${s.dash?'stroke-dasharray="3 3"':''} stroke-linejoin="round"/>`;
+    const e=d[d.length-1]; out+=`<circle cx="${sx(e.t)}" cy="${sy(e.v)}" r="3.5" fill="${s.color}"/>`;
+  });
+  svg.innerHTML=out.replace(/^<svg[^>]*>/,"");
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+}
+
+function renderCharts(){
+  const h=history;
+  chart($("chTemp"),[{data:h.map(x=>({t:x.t,v:x.temp})),color:css("--warm")},{data:h.map(x=>({t:x.t,v:x.dew})),color:css("--dew"),w:1.5,dash:1}],{fill:1,pad:4});
+  chart($("chWind"),[{data:h.map(x=>({t:x.t,v:x.ws})),color:css("--accent")},{data:h.map(x=>({t:x.t,v:x.wg})),color:css("--muted"),w:1.2,dash:1}],{zero:1,fill:1,pad:10});
+  chart($("chPres"),[{data:h.map(x=>({t:x.t,v:x.p})),color:css("--accent")}],{pad:3});
+  chart($("chRain"),[{data:h.map(x=>({t:x.t,v:x.rain})),color:css("--rain")}],{zero:1,fill:1,pad:2});
+  $("c1").textContent="°C · orvalho a tracejado";
+  $("c2").textContent="km/h · rajada a tracejado";
+}
+
+let rt;addEventListener("resize",()=>{clearTimeout(rt);rt=setTimeout(()=>history.length&&renderCharts(),150)});
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>history.length&&renderCharts());
+/* ---------- utilitários comuns ---------- */
+const IPMA="https://api.ipma.pt/open-data/";
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const dt=s=>new Date(s).toLocaleString("pt-PT",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Europe/Lisbon"});
+const isDark=()=>{const a=document.documentElement.getAttribute("data-theme");return a?a==="dark":matchMedia("(prefers-color-scheme: dark)").matches};
+const lisbonDay=ms=>new Date(ms).toLocaleDateString("sv-SE",{timeZone:"Europe/Lisbon"}); // AAAA-MM-DD
+const dayLabel=(iso,i)=>(["Hoje","Amanhã","Depois"][i]||"")+" · "+new Date(iso+"T12:00:00").toLocaleDateString("pt-PT",{weekday:"short",day:"numeric"});
+function segButtons(el,items,active,onPick){
+  el.innerHTML=items.map((t,i)=>`<button type="button" role="tab" aria-selected="${i===active}" data-i="${i}">${esc(t)}</button>`).join("");
+  el.onclick=e=>{const b=e.target.closest("button");if(!b)return;[...el.children].forEach(x=>x.setAttribute("aria-selected",x===b));onPick(+b.dataset.i)};
+}
+const maps={};
+function baseMap(id,opts={}){
+  if(!window.L){$(id).innerHTML='<div class="note map-fallback">O mapa não carregou. Verifique a ligação à internet.</div>';return null}
+  const m=L.map(id,{scrollWheelZoom:false,zoomSnap:0.25,attributionControl:true,...opts});
+  const style=opts.labels?"rastertiles/voyager":(isDark()?"dark_nolabels":"light_nolabels");
+  const st=opts.labels&&isDark()?"dark_all":style;
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${st}/{z}/{x}/{y}{r}.png`,{maxZoom:13,subdomains:"abcd",
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(m);
+  maps[id]=m;return m;
+}
+const geo={};
+async function getGeo(name){if(!geo[name]){const r=await fetch("data/"+name);if(!r.ok)throw 0;geo[name]=await r.json()}return geo[name]}
+
+/* ---------- avisos meteorológicos (mapa por distrito) ---------- */
+const NIVEL={green:["Sem aviso",0],yellow:["Amarelo",1],orange:["Laranja",2],red:["Vermelho",3]};
+const LVCOL=["#3f9e4d","#f2c522","#f08a24","#d6322b"];
+const ICON={
+  "Precipitação":'<path d="M12 3c3 4.4 6 7.6 6 11a6 6 0 0 1-12 0c0-3.4 3-6.6 6-11z"/>',
+  "Vento":'<path d="M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
+  "Agitação Marítima":'<path d="M2 9c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0M2 15c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0"/>',
+  "Nevoeiro":'<path d="M4 7h16M2 12h20M5 17h14"/>',
+  "Tempo Frio":'<path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0zM19 4v6M16 7h6"/>',
+  "Tempo Quente":'<path d="M10 14V5a2 2 0 1 1 4 0v9a4 4 0 1 1-4 0zM18 3l2-1M19 7h3M18 11l2 1"/>',
+  "Trovoada":'<path d="M13 2 5 13h6l-1 9 8-12h-6z" fill="currentColor"/>',
+  "Neve":'<path d="M12 2v20M3.3 7l17.4 10M3.3 17l17.4-10"/>',
+};
+const ico=(t,cls="")=>`<svg class="wx ${cls}" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[t]||'<path d="M12 3 2 21h20zM12 10v5M12 18v.5"/>'}</svg>`;
+let avisosAll=null,avDay=0,avLayer=null,avMarkers=null;
+
+async function loadAvisos(){
+  try{
+    const r=await fetch(IPMA+"forecast/warnings/warnings_www.json");
+    if(!r.ok)throw 0;
+    avisosAll=await r.json();
+  }catch(e){
+    $("avisos").innerHTML=`<div class="err">Não foi possível obter os avisos do IPMA. Consulte <a href="https://www.ipma.pt/pt/otempo/prev-sam/" target="_blank" rel="noopener">ipma.pt</a>.</div>`;
+    return;
+  }
+  const t0=Date.now(),days=[0,1,2].map(i=>lisbonDay(t0+i*864e5));
+  segButtons($("avDays"),days.map(dayLabel),avDay,i=>{avDay=i;drawAvisos()});
+  $("avIcons").innerHTML=Object.keys(ICON).map(k=>`<span>${ico(k,"lg-ico")}${esc(k)}</span>`).join("");
+  drawAvisos();
+}
+function avisosDoDia(i){
+  const day=lisbonDay(Date.now()+i*864e5);
+  return (avisosAll||[]).filter(a=>NIVEL[a.awarenessLevelID]?.[1]>0&&lisbonDay(Date.parse(a.startTime))<=day&&lisbonDay(Date.parse(a.endTime)-1)>=day&&Date.parse(a.endTime)>Date.now());
+}
+async function drawAvisos(){
+  const list=avisosDoDia(avDay);
+  const byArea={};
+  for(const a of list){(byArea[a.idAreaAviso]??=[]).push(a)}
+  // lista do distrito de Santarém
+  const stm=(byArea.STM||[]).sort((a,b)=>NIVEL[b.awarenessLevelID][1]-NIVEL[a.awarenessLevelID][1]||Date.parse(a.startTime)-Date.parse(b.startTime));
+  $("avisos").innerHTML=stm.length?stm.map(a=>`<div class="aviso lv-${a.awarenessLevelID}">
+      <div class="t">${ico(a.awarenessTypeName,"t-ico")}<span>${NIVEL[a.awarenessLevelID][0]}</span>${esc(a.awarenessTypeName)}</div>
+      <div class="w">${dt(a.startTime)} → ${dt(a.endTime)}</div>
+      ${a.text?`<p>${esc(a.text)}</p>`:""}</div>`).join("")
+    :`<div class="ok-box">Sem avisos meteorológicos para o distrito de Santarém neste dia.</div>`;
+  // mapa
+  let fc;try{fc=await getGeo("distritos.geojson")}catch(e){return}
+  const m=maps.mapAvisos||baseMap("mapAvisos",{zoomControl:false});
+  if(!m)return;
+  if(!avLayer){
+    avLayer=L.geoJSON(fc,{style:()=>({weight:1,color:isDark()?"#0f1719":"#ffffff",fillOpacity:.75,fillColor:LVCOL[0]})}).addTo(m);
+    m.fitBounds(avLayer.getBounds(),{padding:[8,8]});
+    avMarkers=L.layerGroup().addTo(m);
+  }
+  avMarkers.clearLayers();
+  avLayer.eachLayer(l=>{
+    const p=l.feature.properties,ws=byArea[p.area]||[];
+    const max=ws.reduce((x,a)=>Math.max(x,NIVEL[a.awarenessLevelID][1]),0);
+    l.setStyle({fillColor:LVCOL[max],fillOpacity:max?.8:.35,weight:p.area==="STM"?2.5:1,color:p.area==="STM"?(isDark()?"#e6eef0":"#17242b"):(isDark()?"#0f1719":"#ffffff")});
+    if(p.area==="STM")l.bringToFront();
+    // um símbolo por fenómeno, com a cor do nível mais alto desse fenómeno
+    const tipos={};for(const a of ws){const n=NIVEL[a.awarenessLevelID][1];tipos[a.awarenessTypeName]=Math.max(tipos[a.awarenessTypeName]||0,n)}
+    const html=Object.entries(tipos).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`<span class="wxb" style="--c:${LVCOL[n]}">${ico(t)}</span>`).join("");
+    const tip=`<b>${esc(p.nome)}</b><br>`+(ws.length?ws.map(a=>`${NIVEL[a.awarenessLevelID][0]} · ${esc(a.awarenessTypeName)}`).join("<br>"):"Sem avisos");
+    l.unbindTooltip();l.bindTooltip(tip,{sticky:true});
+    if(html){const n=Object.keys(tipos).length;
+      L.marker(p.centro,{icon:L.divIcon({className:"wxm",html:`<div class="wxrow">${html}</div>`,iconSize:[n*24,24],iconAnchor:[n*12,12]}),interactive:false}).addTo(avMarkers)}
+  });
+}
+
+/* ---------- risco de incêndio (mapa por concelho) ---------- */
+const RCM=["","Reduzido","Moderado","Elevado","Muito elevado","Máximo"];
+const RCMCOL=["#c9d2d6","#3f9e4d","#f2d43b","#ee8a24","#d52b24","#6e1210"];
+const VIZINHOS=new Set(["1403","1404","1406","1407","1409","1415","1416"]);
+let rcmData=[null,null],rcmDay=0,rcmLayer=null,rcmLabels=null;
+function rcmOf(json,dico){
+  const loc=json&&json.local||{};
+  const e=loc[dico]||Object.values(loc).find(x=>String(x.dico)===dico);
+  const v=e&&(e.data?.rcm??e.rcm);
+  return v==null?null:Number(v);
+}
+async function loadRCM(){
+  try{
+    rcmData=await Promise.all([0,1].map(d=>fetch(IPMA+`forecast/meteorology/rcm/rcm-d${d}.json`).then(r=>{if(!r.ok)throw 0;return r.json()})));
+  }catch(e){
+    $("mapRCM").innerHTML=`<div class="err map-fallback">Não foi possível obter o risco de incêndio do IPMA. Consulte <a href="https://www.ipma.pt/pt/riscoincendio/rcm.pt/" target="_blank" rel="noopener">ipma.pt</a>.</div>`;
+    return;
+  }
+  const t0=Date.now();
+  segButtons($("rcmDays"),rcmData.map((j,i)=>dayLabel(j.dataPrev||lisbonDay(t0+i*864e5),i)),rcmDay,i=>{rcmDay=i;drawRCM()});
+  drawRCM();
+}
+async function drawRCM(){
+  let fc;try{fc=await getGeo("concelhos-santarem.geojson")}catch(e){return}
+  const m=maps.mapRCM||baseMap("mapRCM",{zoomControl:false});
+  if(!m)return;
+  const j=rcmData[rcmDay];
+  if(!rcmLayer){
+    rcmLayer=L.geoJSON(fc).addTo(m);
+    m.fitBounds(rcmLayer.getBounds(),{padding:[6,6]});
+    rcmLabels=L.layerGroup().addTo(m);
+  }
+  rcmLabels.clearLayers();
+  rcmLayer.eachLayer(l=>{
+    const p=l.feature.properties,v=rcmOf(j,p.dico),me=p.dico==="1403";
+    l.setStyle({fillColor:RCMCOL[v||0],fillOpacity:.82,weight:me?3:1,color:me?(isDark()?"#ffffff":"#17242b"):(isDark()?"#0f1719":"#ffffff")});
+    if(me)l.bringToFront();
+    l.unbindTooltip();l.bindTooltip(`<b>${esc(p.nome)}</b><br>${v?RCM[v]:"sem dados"}`,{sticky:true});
+    if(VIZINHOS.has(p.dico))L.marker(p.centro,{icon:L.divIcon({className:"maplabel"+(me?" me":""),html:`<span>${esc(p.nome)}</span>`,iconSize:null}),interactive:false}).addTo(rcmLabels);
+  });
+}
+
+/* ---------- Rio Tejo (APA / SNIRH, recolhido pelo GitHub) ---------- */
+let tejo=null,tejoLayer=null;
+const nf=(v,unit)=>v==null?"--":(unit==="m3/s"&&Math.abs(v)>=100?Math.round(v).toLocaleString("pt-PT"):f(v,unit==="%"?0:(unit==="m3/s"&&Math.abs(v)<10?1:(unit==="m"?2:0))));
+const U=u=>u==="m3/s"?"m³/s":u;
+const last=s=>s&&s.rows.length?s.rows[s.rows.length-1]:null;
+function ago(s,hours){if(!s||!s.rows.length)return null;const lt=Date.parse(last(s)[0])-hours*3600e3;let best=null;for(const r of s.rows){if(Date.parse(r[0])<=lt)best=r}return best}
+function trendOf(s,unit){
+  const a=last(s),b=ago(s,3);if(!a||!b)return null;
+  const d=a[1]-b[1],tol=unit==="m"?0.05:Math.max(Math.abs(b[1])*0.03,1);
+  return {dir:Math.abs(d)<tol?0:Math.sign(d),d};
+}
+function trend(s,unit){
+  const t=trendOf(s,unit);if(!t)return `<span class="flat">--</span>`;
+  if(!t.dir)return `<span class="flat">→ estável</span>`;
+  const s2=(t.d>0?"+":"")+nf(t.d,unit)+" "+U(unit);
+  return t.dir>0?`<span class="up">↑ a subir <small>${s2}</small></span>`:`<span class="down">↓ a descer <small>${s2}</small></span>`;
+}
+function spark(s){
+  if(!s||s.rows.length<2)return "";
+  const W=120,H=30,v=s.rows.map(r=>r[1]),t=s.rows.map(r=>Date.parse(r[0]));
+  const lo=Math.min(...v),hi=Math.max(...v),sp=hi-lo||1,t0=t[0],t1=t[t.length-1]||t0+1;
+  const p=s.rows.map((r,i)=>`${i?"L":"M"}${(2+(t[i]-t0)/(t1-t0||1)*(W-4)).toFixed(1)} ${(H-3-(v[i]-lo)/sp*(H-6)).toFixed(1)}`).join("");
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><path d="${p}" fill="none" stroke="var(--accent)" stroke-width="1.5"/></svg>`;
+}
+const whenTxt=s=>{const r=last(s);if(!r)return "";return new Date(Date.parse(r[0])).toLocaleString("pt-PT",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit",timeZone:"Europe/Lisbon"})};
+const isOld=s=>{const r=last(s);return !r||Date.now()-Date.parse(r[0])>3*3600e3};
+const when=s=>last(s)?whenTxt(s)+(isOld(s)?' <span class="stale">· desatualizado</span>':""):"--";
+const cell=(s,unit)=>{const r=last(s);return r?`<span class="num">${nf(r[1],unit)}<small>${U(unit)}</small></span>`:`<span class="flat">--</span>`};
+// lado da etiqueta no mapa, para as estações próximas não se sobreporem
+const SIDE={"Alcântara":"t","Cedillo":"t","Fratel":"r","Pracana":"t","Belver":"b","Castelo do Bode":"t","Tramagal":"b","Almourol":"l","Ponte da Chamusca":"l","Ómnias (Santarém)":"r","Vila Franca de Xira":"r"};
+// Ponte de Abrantes fica muito perto de Tramagal: aparece na tabela, não no mapa.
+const NO_MAP=new Set(["Ponte de Abrantes"]);
+
+async function loadTejo(){
+  try{
+    const r=await fetch("data/tejo.json",{cache:"no-store"});
+    if(!r.ok)throw 0;
+    tejo=await r.json();
+  }catch(e){
+    $("tejoInfo").innerHTML=`Ainda sem dados do Tejo. Aparecem depois da primeira recolha automática.`;
+    return;
+  }
+  $("tejoInfo").textContent="Recolha das "+hhmm(new Date(tejo.generated_at));
+  const rio=tejo.stations.filter(s=>s.kind==="rio"),bar=tejo.stations.filter(s=>s.kind==="barragem");
+  const name=s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a><small>${esc(s.river)}${s.country==="ES"?" · Espanha":""}${s.stale?" · sem ligação à APA":""}</small>`;
+  $("rioBody").innerHTML=rio.map(s=>{const q=s.series.caudal,n=s.series.nivel,main=q||n;
+    return `<tr><td>${name(s)}</td><td>${cell(q,"m3/s")}</td><td>${cell(n,"m")}</td><td>${trend(main,main===q?"m3/s":"m")}</td><td class="spark-col">${spark(main)}</td><td>${when(main)}</td></tr>`}).join("");
+  $("barBody").innerHTML=bar.map(s=>{const a=s.series.armazenamento,pv=last(a);
+    const pct=pv?`<div class="pct"><span class="num">${nf(pv[1],"%")}<small>%</small></span><div class="bar"><i style="width:${Math.min(100,Math.max(0,pv[1]))}%"></i></div></div>`:`<span class="flat">--</span>`;
+    const ref=a||s.series.cota||s.series.descarga||s.series.afluencia;
+    return `<tr><td>${name(s)}</td><td>${pct}</td><td>${cell(s.series.cota,"m")}</td><td>${cell(s.series.descarga,"m3/s")}</td><td>${cell(s.series.afluencia,"m3/s")}</td><td>${when(ref)}</td></tr>`}).join("");
+  drawTejoMap();
+  renderTejoChart();
+}
+function drawTejoMap(){
+  const m=maps.mapTejo||baseMap("mapTejo",{labels:true});
+  if(!m||!tejo)return;
+  if(tejoLayer)tejoLayer.clearLayers();else tejoLayer=L.layerGroup().addTo(m);
+  const pts=[],narrow=$("mapTejo").clientWidth<600; // no telemóvel, enquadra só o troço português
+  for(const s of tejo.stations){
+    if(s.lat==null||NO_MAP.has(s.name))continue;if(!(narrow&&s.country==="ES"))pts.push([s.lat,s.lon]);
+    let val="--",cls="flat",arrow="";
+    const rows=[];
+    if(s.kind==="rio"){
+      const q=s.series.caudal,n=s.series.nivel,main=q||n,unit=main===q?"m3/s":"m";
+      const t=trendOf(main,unit);
+      if(last(main)){val=nf(last(main)[1],unit)+"<small>"+U(unit)+"</small>";}
+      if(t){cls=t.dir>0?"up":t.dir<0?"down":"flat";arrow=t.dir>0?"↑":t.dir<0?"↓":"→"}
+      rows.push(["Caudal",q],["Nível",n]);
+      rows.push(["Tendência 3 h",null,trend(main,unit)]);
+    }else{
+      const a=s.series.armazenamento;cls="dam";
+      if(last(a))val=nf(last(a)[1],"%")+"<small>%</small>";
+      else if(last(s.series.cota))val=nf(last(s.series.cota)[1],"m")+"<small>m</small>";
+      rows.push(["Armazenamento",a],["Cota",s.series.cota],["Descarga",s.series.descarga],["Afluência",s.series.afluencia]);
+    }
+    const old=s.stale||isOld(s.series.caudal||s.series.nivel||s.series.armazenamento||s.series.cota);
+    const side=SIDE[s.name]||"r";
+    const html=`<div class="pin ${cls}${old?" old":""} side-${side}"><i class="dot"></i><div class="tag"><span class="nm">${esc(s.name.replace(" (Santarém)",""))}</span><span class="vl">${arrow?`<b>${arrow}</b>`:""}${val}</span></div></div>`;
+    const unitOf={Caudal:"m3/s",Nível:"m",Armazenamento:"%",Cota:"m",Descarga:"m3/s",Afluência:"m3/s"};
+    const pop=`<div class="pop"><b>${esc(s.name)}</b><div class="note">${esc(s.river)}${s.country==="ES"?" · Espanha":""}${s.kind==="barragem"?" · barragem":""}</div>
+      <table>${rows.map(([k,ser,raw])=>raw?`<tr><td>${k}</td><td>${raw}</td></tr>`:(ser?`<tr><td>${k}</td><td>${cell(ser,unitOf[k])}</td></tr>`:"")).join("")}</table>
+      ${spark(s.series.caudal||s.series.nivel||s.series.armazenamento)}
+      <div class="note">${old?"Sem leitura recente":"Leitura "+whenTxt(s.series.caudal||s.series.nivel||s.series.armazenamento||s.series.cota)}</div>
+      <a href="${esc(s.url)}" target="_blank" rel="noopener">Página oficial da estação</a></div>`;
+    L.marker([s.lat,s.lon],{icon:L.divIcon({className:"pinwrap",html,iconSize:[14,14],iconAnchor:[7,7]}),title:s.name}).bindPopup(pop,{maxWidth:260}).addTo(tejoLayer);
+  }
+  if(pts.length&&!m._fitted){m.fitBounds(pts,{padding:narrow?[28,28]:[40,40]});m._fitted=true}
+}
+function renderTejoChart(){
+  if(!tejo)return;
+  // Gráfico principal: caudal em Almourol; se não houver, a primeira estação do rio com caudal; senão, nível.
+  const rio=tejo.stations.filter(s=>s.kind==="rio");
+  const pick=rio.find(s=>s.name==="Almourol"&&s.series.caudal)||rio.find(s=>s.series.caudal)||rio.find(s=>s.series.nivel);
+  if(!pick){chart($("chTejo"),[{data:[],color:css("--rain")}]);return}
+  const key=pick.series.caudal?"caudal":"nivel";
+  $("tejoMainTitle").textContent=(key==="caudal"?"Caudal":"Nível")+" do Tejo em "+pick.name+" · últimas 72 horas";
+  $("tejoMainUnit").textContent=key==="caudal"?"m³/s":"m";
+  chart($("chTejo"),[{data:pick.series[key].rows.map(r=>({t:Date.parse(r[0]),v:r[1]})),color:css("--rain")}],{fill:1,zero:key==="caudal",pad:key==="caudal"?50:0.5});
+}
+addEventListener("resize",()=>{clearTimeout(window._tj);window._tj=setTimeout(renderTejoChart,150)});
+
+load(); setInterval(load,5*60*1000);
+loadAvisos(); loadRCM(); loadTejo();
+setInterval(()=>{loadAvisos();loadRCM()},30*60*1000);
+setInterval(loadTejo,15*60*1000);
+setInterval(()=>{loadAvisos();loadRCM()},30*60*1000);
+</script>
+
+</body>
+</html>
