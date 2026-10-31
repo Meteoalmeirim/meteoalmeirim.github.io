@@ -94,6 +94,7 @@ footer a{color:var(--accent)}
 .mapbox{height:420px;max-width:100%;border:1px solid var(--line);background:var(--surface);position:relative;z-index:0}
 .mapbox.tall{height:480px}
 .map-fallback{padding:16px}
+.osm-tiles{filter:grayscale(.7) contrast(.9)}
 .leaflet-container{font-family:var(--body);background:var(--surface)}
 .leaflet-tooltip{font:13px/1.4 var(--body);border-radius:0;border:1px solid var(--line);background:var(--surface);color:var(--fg);box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .leaflet-tooltip:before{display:none}
@@ -433,10 +434,16 @@ const maps={};
 function baseMap(id,opts={}){
   if(!window.L){$(id).innerHTML='<div class="note map-fallback">O mapa não carregou. Verifique a ligação à internet.</div>';return null}
   const m=L.map(id,{scrollWheelZoom:false,zoomSnap:0.25,attributionControl:true,...opts});
-  const style=opts.labels?"rastertiles/voyager":(isDark()?"dark_nolabels":"light_nolabels");
-  const st=opts.labels&&isDark()?"dark_all":style;
-  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${st}/{z}/{x}/{y}{r}.png`,{maxZoom:13,subdomains:"abcd",
-    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(m);
+  // Fundo cinzento da Esri (sem chave); nomes de localidades e rios só no mapa do Tejo.
+  const tone=isDark()?"Dark":"Light";
+  const esri=n=>`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_${tone}_Gray_${n}/MapServer/tile/{z}/{y}/{x}`;
+  const layers=[L.tileLayer(esri("Base"),{maxZoom:13,attribution:'Fundo &copy; Esri, HERE, Garmin, &copy; OpenStreetMap'})];
+  if(opts.labels)layers.push(L.tileLayer(esri("Reference"),{maxZoom:13,pane:"overlayPane",opacity:.9}));
+  layers.forEach(l=>l.addTo(m));
+  // Se o fundo da Esri falhar, troca para o OpenStreetMap.
+  let errs=0,swapped=false;
+  layers[0].on("tileerror",()=>{if(swapped||++errs<4)return;swapped=true;layers.forEach(l=>m.removeLayer(l));
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:13,className:"osm-tiles",attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(m)});
   maps[id]=m;return m;
 }
 const geo={};
