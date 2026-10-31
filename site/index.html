@@ -27,6 +27,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px
 .wrap{max-width:1040px;margin:0 auto;padding-block:20px 40px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   display:flex;flex-direction:column;gap:28px}
+.banner{display:block;width:100%;max-width:100%;height:auto;aspect-ratio:3/1;object-fit:cover;border-radius:4px;margin-bottom:-12px}
 header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,34px);line-height:1.1;margin:4px 0 0;text-wrap:balance}
@@ -164,6 +165,7 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
 <body>
 
 <div class="wrap">
+  <img class="banner" src="cabecalho-1000.jpg" srcset="cabecalho-1000.jpg 1000w, cabecalho.jpg 2172w" sizes="(max-width:1040px) 100vw, 1040px" width="2172" height="724" alt="Meteo Almeirim: meteorologia, previsão, alertas e dados em tempo real">
   <header>
     <div>
       <div class="eyebrow">Estação IALMEI2 · Bresser 5 em 1</div>
