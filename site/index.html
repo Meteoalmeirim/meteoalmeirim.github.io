@@ -169,7 +169,7 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
   <header>
     <div>
       <div class="eyebrow">Estação IALMEI2 · Bresser 5 em 1</div>
-      <h1 id="place">Estação Meteorológica</h1>
+      <h1 id="place">Almeirim - Santarém</h1>
     </div>
     <div class="status"><span class="dot" id="dot"></span><span id="updated">A ligar à estação…</span></div>
   </header>
@@ -351,7 +351,6 @@ async function load(){
 
 function renderCurrent(o){
   const m=o.metric, ms=o.epoch*1000;
-  if(o.neighborhood) $("place").textContent=o.neighborhood;
   const age=(Date.now()-ms)/60000;
   $("dot").className="dot "+(age<20?"ok":"old");
   $("updated").textContent="Leitura das "+hhmm(ms)+(age>=20?" · sem dados recentes":"");
