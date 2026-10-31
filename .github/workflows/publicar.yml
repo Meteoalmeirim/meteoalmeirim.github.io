@@ -30,8 +30,12 @@ jobs:
           node-version: "22"
       - name: Recolher dados do Tejo (APA / SNIRH)
         env:
-          PREVIOUS_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/data/tejo.json
-        run: node tools/tejo.mjs
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          # Endereço público atual da página (site de utilizador/organização ou de projeto)
+          if [ "$REPO" = "$OWNER.github.io" ]; then SITE="https://$REPO"; else SITE="https://$OWNER.github.io/$REPO"; fi
+          PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
