@@ -740,11 +740,11 @@ async function loadRadar(){
   }
   if(!radar.timer)showRadarFrame(radar.frames.length-1);
 }
+load(); setInterval(load,5*60*1000);
 loadRadar(); setInterval(loadRadar,5*60*1000);
 loadAvisos(); loadRCM(); loadTejo();
 setInterval(()=>{loadAvisos();loadRCM()},30*60*1000);
 setInterval(loadTejo,15*60*1000);
-setInterval(()=>{loadAvisos();loadRCM()},30*60*1000);
 </script>
 
 </body>

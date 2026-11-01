@@ -39,15 +39,6 @@ jobs:
           PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
       - name: Lista de imagens do radar do IPMA
         run: node tools/radar-ipma.mjs
-      - name: Diagnóstico Weather Underground (temporário)
-        continue-on-error: true
-        run: |
-          K=$(grep -o 'KEY="[0-9a-f]*"' site/index.html | cut -d'"' -f2)
-          for U in "observations/current?stationId=IALMEI2&format=json&units=m&numericPrecision=decimal" "observations/all/1day?stationId=IALMEI2&format=json&units=m&numericPrecision=decimal"; do
-            echo "WUDIAG == $U"
-            curl -s -m 20 -D - -o body.txt -H "Origin: https://meteoalmeirim.github.io" "https://api.weather.com/v2/pws/$U&apiKey=$K" | grep -iE "^HTTP|access-control|content-length" | sed 's/^/WUDIAG /'
-            echo "WUDIAG body: $(head -c 400 body.txt)"
-          done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
