@@ -42,8 +42,20 @@ async function candidates() {
   return [...uniq, ...KNOWN];
 }
 
+async function debugExtra() {
+  for (const u of ["https://www.ipma.pt/resources.www/transf/radar/imgs-radar.json", "https://www.ipma.pt/pt/otempo/obs.remote/mapbuilder-pt.js"]) {
+    try {
+      const t = await (await get(u)).text();
+      if (u.endsWith(".json")) console.log("DEBUGJSON " + t.slice(0, 2500));
+      else console.log("DEBUGJS\n" + t.split(/\n/).filter(l => /bounds|ImageOverlay|LatLng|url|png|json|\[\s*-?\d/i.test(l)).map(l => l.trim().slice(0, 240)).slice(0, 60).join("\n"));
+    } catch (e) { console.log("DEBUG falhou " + u + ": " + e.message); }
+  }
+  try { const r = await get(KNOWN[0]); console.log("DEBUG LIS_MAX last-modified:", r.headers.get("last-modified"), "date:", r.headers.get("date")); } catch (e) {}
+}
+
 async function main() {
   await mkdir(DIR, { recursive: true });
+  if (process.env.RADAR_DEBUG) await debugExtra();
   for (const url of await candidates()) {
     try {
       const r = await get(url);
