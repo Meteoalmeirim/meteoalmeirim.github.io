@@ -25,6 +25,11 @@ async function candidates() {
   for (const page of PAGES) {
     try {
       const html = await (await get(page)).text();
+      // Diagnóstico: linhas da página que falam do radar (para afinar os endereços).
+      if (process.env.RADAR_DEBUG) {
+        const lines = html.split(/\n/).filter(l => /png-geo|radar|\.js["']/i.test(l)).map(l => l.trim().slice(0, 300));
+        console.log("DEBUG " + page + "\n" + lines.slice(0, 80).join("\n"));
+      }
       for (const m of html.matchAll(/["'(]((?:https?:\/\/www\.ipma\.pt)?\/?resources\.www\/transf\/radar\/[^"')\s]+?\.(?:png|gif|jpg))/gi)) {
         found.push(new URL(m[1], "https://www.ipma.pt/").href);
       }
@@ -32,7 +37,7 @@ async function candidates() {
   }
   // Preferir o radar de Coruche (LIS) e o composto do continente.
   const score = u => (/LIS|coruche/i.test(u) ? 0 : /por|pcr|cont/i.test(u) ? 1 : 2);
-  const uniq = [...new Set(found)].sort((a, b) => score(a) - score(b));
+  const uniq = [...new Set(found)].filter(u => !/legenda|legend/i.test(u)).sort((a, b) => score(a) - score(b));
   console.log("imagens encontradas na página:", uniq.length ? uniq.join(", ") : "nenhuma");
   return [...uniq, ...KNOWN];
 }
@@ -45,7 +50,7 @@ async function main() {
       const type = r.headers.get("content-type") || "";
       if (!type.startsWith("image/")) throw new Error(url + " não é imagem (" + type + ")");
       const buf = Buffer.from(await r.arrayBuffer());
-      if (buf.length < 2000) throw new Error(url + " demasiado pequena");
+      if (buf.length < 8000) throw new Error(url + " demasiado pequena");
       const ext = type.includes("png") ? "png" : type.includes("jpeg") ? "jpg" : "gif";
       await writeFile(new URL("radar-ipma." + ext, DIR), buf);
       await writeFile(new URL("radar-ipma.json", DIR), JSON.stringify({

@@ -38,6 +38,8 @@ jobs:
           if [ "$REPO_LC" = "$OWNER_LC.github.io" ]; then SITE="https://$REPO_LC"; else SITE="https://$OWNER_LC.github.io/$REPO"; fi
           PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
       - name: Copiar radar do IPMA (Coruche)
+        env:
+          RADAR_DEBUG: "1"
         run: node tools/radar-ipma.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
