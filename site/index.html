@@ -83,8 +83,15 @@ footer a{color:var(--accent)}
 .r1{background:#3f9e4d;color:#fff}.r2{background:#f2d43b;color:#1d1d1d}.r3{background:#ee8a24;color:#1d1d1d}.r4{background:#d52b24;color:#fff}.r5{background:#6e1210;color:#fff}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
-.radar{border:1px solid var(--line);background:var(--surface);aspect-ratio:4/3;max-width:100%;max-height:560px;width:100%}
-.radar iframe{width:100%;height:100%;border:0;display:block}
+.radar2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.rbox{margin:0;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.rbox figcaption{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 12px;font-size:13px;font-weight:600;border-bottom:1px solid var(--line)}
+.rbox figcaption em{font-style:normal;font-family:var(--mono);font-size:12px;font-weight:400;color:var(--muted)}
+.rbox iframe,.rimg{display:block;width:100%;aspect-ratio:1/1;max-width:100%;border:0}
+.rimg{display:grid;place-items:center;background:#fff;overflow:hidden;text-decoration:none}
+.rimg img{width:100%;height:100%;object-fit:contain}
+.rimg .note{padding:16px;text-align:center}
+@media (max-width:700px){.radar2{grid-template-columns:minmax(0,1fr)}}
 .links{margin-top:8px}.links a{color:var(--accent)}
 /* secções com mapa */
 .sec-hd{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:8px 16px;margin-bottom:12px}
@@ -311,14 +318,25 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
   </section>
 
   <section>
-    <h3>Radar de chuva e trovoada</h3>
-    <div class="radar">
-      <iframe title="Radar de precipitação e trovoada" loading="lazy"
-        src="https://embed.windy.com/embed2.html?lat=39.21&lon=-8.63&detailLat=39.21&detailLon=-8.63&zoom=8&level=surface&overlay=radar&product=radar&menu=&message=true&marker=true&calendar=now&type=map&location=coordinates&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1"></iframe>
+    <div class="sec-hd">
+      <h3>Radar de chuva e trovoada</h3>
     </div>
-    <div class="note links">Mais detalhe:
-      <a href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">radar do IPMA</a> ·
-      <a href="https://www.lightningmaps.org/?lang=pt#m=oss;t=3;s=0;o=0;b=;ts=0;y=39.21;x=-8.63;z=8;d=2;dl=2;dc=0;" target="_blank" rel="noopener">trovoadas em tempo real (Blitzortung)</a>
+    <div class="radar2">
+      <figure class="rbox">
+        <figcaption><span>Radar de precipitação · IPMA</span><em id="radarTime">a carregar…</em></figcaption>
+        <a class="rimg" href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">
+          <img id="radarImg" alt="Imagem do radar de precipitação do IPMA (Coruche), que cobre Almeirim" hidden>
+          <span id="radarMsg" class="note">A carregar a imagem do radar…</span>
+        </a>
+      </figure>
+      <figure class="rbox">
+        <figcaption><span>Trovoadas em tempo real · Blitzortung</span><em>últimas horas</em></figcaption>
+        <iframe title="Mapa de descargas elétricas em tempo real centrado em Almeirim (Blitzortung)" loading="lazy"
+          src="https://map.blitzortung.org/index.php?interactive=1&amp;NavigationControl=1&amp;FullScreenControl=0&amp;Cookies=0&amp;InfoDiv=0&amp;MenuButtonDiv=0&amp;ScaleControl=1&amp;LinksCheckboxChecked=1&amp;LinksRangeValue=10&amp;MapStyle=2&amp;MapStyleRangeValue=10&amp;Advertisment=0#8/39.21/-8.63"></iframe>
+      </figure>
+    </div>
+    <div class="note links">Fontes: <a href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">radar do IPMA</a> (cópia atualizada de 10 em 10 minutos) ·
+      <a href="https://www.lightningmaps.org/?lang=pt#m=oss;t=3;s=0;o=0;b=;ts=0;y=39.21;x=-8.63;z=8;d=2;dl=2;dc=0;" target="_blank" rel="noopener">Blitzortung.org / LightningMaps</a>
     </div>
   </section>
 
@@ -679,7 +697,25 @@ function renderTejoChart(){
 }
 addEventListener("resize",()=>{clearTimeout(window._tj);window._tj=setTimeout(renderTejoChart,150)});
 
+/* ---------- radar do IPMA (cópia guardada pelo GitHub) ---------- */
+async function loadRadar(){
+  const img=$("radarImg"),msg=$("radarMsg");
+  try{
+    const r=await fetch("data/radar-ipma.json",{cache:"no-store"});if(!r.ok)throw 0;
+    const j=await r.json();if(!j.file)throw 0;
+    img.onload=()=>{img.hidden=false;msg.hidden=true};
+    img.onerror=()=>{img.hidden=true;msg.hidden=false;msg.textContent="Imagem do radar indisponível. Toque para abrir o radar no site do IPMA."};
+    img.src="data/"+j.file+"?t="+Date.parse(j.fetched_at);
+    const t=j.last_modified?Date.parse(j.last_modified):Date.parse(j.fetched_at);
+    $("radarTime").textContent=(j.last_modified?"imagem das ":"copiada às ")+hhmm(t);
+  }catch(e){
+    img.hidden=true;msg.hidden=false;
+    msg.textContent="Imagem do radar ainda indisponível. Toque para abrir o radar no site do IPMA.";
+    $("radarTime").textContent="";
+  }
+}
 load(); setInterval(load,5*60*1000);
+loadRadar(); setInterval(loadRadar,5*60*1000);
 loadAvisos(); loadRCM(); loadTejo();
 setInterval(()=>{loadAvisos();loadRCM()},30*60*1000);
 setInterval(loadTejo,15*60*1000);

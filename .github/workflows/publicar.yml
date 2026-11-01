@@ -5,7 +5,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "13,43 * * * *"   # de 30 em 30 minutos (hora UTC)
+    - cron: "3,13,23,33,43,53 * * * *"   # de 10 em 10 minutos
 
 permissions:
   contents: read
@@ -37,6 +37,8 @@ jobs:
           OWNER_LC=$(echo "$OWNER" | tr "[:upper:]" "[:lower:]"); REPO_LC=$(echo "$REPO" | tr "[:upper:]" "[:lower:]")
           if [ "$REPO_LC" = "$OWNER_LC.github.io" ]; then SITE="https://$REPO_LC"; else SITE="https://$OWNER_LC.github.io/$REPO"; fi
           PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
+      - name: Copiar radar do IPMA (Coruche)
+        run: node tools/radar-ipma.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
