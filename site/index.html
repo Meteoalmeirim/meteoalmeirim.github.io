@@ -55,6 +55,8 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,34px);lin
 .bar{height:6px;background:var(--line);position:relative;margin-top:4px}
 .bar i{position:absolute;inset:0 auto 0 0;background:var(--accent)}
 section h3{font-family:var(--display);font-weight:700;font-size:20px;margin:0 0 12px}
+.forecast{background:#fff;border:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.forecast iframe{display:block;border:0;width:100%;min-width:560px;height:250px}
 .charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .chart{background:var(--surface);border:1px solid var(--line);padding:14px 14px 8px;min-width:0}
 .chart .hd{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
@@ -236,6 +238,19 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       <div class="chart"><div class="hd"><span>Pressão</span><em id="c3">hPa</em></div><svg id="chPres"></svg></div>
       <div class="chart"><div class="hd"><span>Chuva acumulada</span><em id="c4">mm</em></div><svg id="chRain"></svg></div>
     </div>
+  </section>
+
+  <section>
+    <div class="sec-hd">
+      <h3>Previsão para 7 dias</h3>
+      <span class="note">Santarém · meteoblue</span>
+    </div>
+    <div class="forecast">
+      <iframe title="Previsão do tempo para 7 dias em Santarém (meteoblue)" loading="lazy"
+        src="https://www.meteoblue.com/pt/tempo/widget/daily/santar%c3%a9m_portugal_2263480?geoloc=fixed&days=7&tempunit=CELSIUS&windunit=KILOMETER_PER_HOUR&precipunit=MILLIMETER&coloured=coloured&pictoicon=1&maxtemperature=1&mintemperature=1&windspeed=1&windgust=0&winddirection=1&uv=0&humidity=0&precipitation=1&precipitationprobability=1&spot=1&pressure=0&layout=light"
+        sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>
+    </div>
+    <div class="note links">Previsão: <a href="https://www.meteoblue.com/pt/tempo/semana/santar%c3%a9m_portugal_2263480?utm_source=daily_widget&amp;utm_medium=linkus&amp;utm_content=daily&amp;utm_campaign=Weather%2BWidget" target="_blank" rel="noopener">meteoblue</a> · <a href="https://www.meteoblue.com/pt/tempo/semana/santar%c3%a9m_portugal_2263480" target="_blank" rel="noopener">ver previsão detalhada</a></div>
   </section>
 
   <section>
