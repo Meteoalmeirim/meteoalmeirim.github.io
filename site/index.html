@@ -288,6 +288,21 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
 
   <section>
     <div class="sec-hd">
+      <h3>Avisos meteorológicos</h3>
+      <div class="seg" id="avDays" role="tablist" aria-label="Dia dos avisos"></div>
+    </div>
+    <div class="mapbox" id="mapAvisos" role="img" aria-label="Mapa de Portugal continental com os avisos por distrito"></div>
+    <div class="legend">
+      <span><i class="lv-sw lv-green"></i>Sem aviso</span><span><i class="lv-sw lv-yellow"></i>Amarelo</span><span><i class="lv-sw lv-orange"></i>Laranja</span><span><i class="lv-sw lv-red"></i>Vermelho</span>
+    </div>
+    <div class="legend" id="avIcons"></div>
+    <h4 class="sub-h">Distrito de Santarém</h4>
+    <div id="avisos" class="avisos"><div class="note">A carregar avisos do IPMA…</div></div>
+  </section>
+
+
+  <section>
+    <div class="sec-hd">
       <h3>Rio Tejo · caudais e barragens</h3>
       <span class="note" id="tejoInfo">A carregar dados da APA…</span>
     </div>
@@ -315,20 +330,6 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       </table></div>
     </details>
     <div class="note links">Fonte: <a href="https://infoagua.apambiente.pt/pt/cheias/cheias-pesquisa" target="_blank" rel="noopener">APA · InfoÁgua / SNIRH</a>, rede de vigilância e alerta de cheias. Dados provisórios, recolhidos de 30 em 30 minutos. Posição dos pontos aproximada.</div>
-  </section>
-
-  <section>
-    <div class="sec-hd">
-      <h3>Avisos meteorológicos</h3>
-      <div class="seg" id="avDays" role="tablist" aria-label="Dia dos avisos"></div>
-    </div>
-    <div class="mapbox" id="mapAvisos" role="img" aria-label="Mapa de Portugal continental com os avisos por distrito"></div>
-    <div class="legend">
-      <span><i class="lv-sw lv-green"></i>Sem aviso</span><span><i class="lv-sw lv-yellow"></i>Amarelo</span><span><i class="lv-sw lv-orange"></i>Laranja</span><span><i class="lv-sw lv-red"></i>Vermelho</span>
-    </div>
-    <div class="legend" id="avIcons"></div>
-    <h4 class="sub-h">Distrito de Santarém</h4>
-    <div id="avisos" class="avisos"><div class="note">A carregar avisos do IPMA…</div></div>
   </section>
 
   <section>
