@@ -83,14 +83,16 @@ footer a{color:var(--accent)}
 .r1{background:#3f9e4d;color:#fff}.r2{background:#f2d43b;color:#1d1d1d}.r3{background:#ee8a24;color:#1d1d1d}.r4{background:#d52b24;color:#fff}.r5{background:#6e1210;color:#fff}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
-.radar2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.radar2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
 .rbox{margin:0;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
 .rbox figcaption{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 12px;font-size:13px;font-weight:600;border-bottom:1px solid var(--line)}
 .rbox figcaption em{font-style:normal;font-family:var(--mono);font-size:12px;font-weight:400;color:var(--muted)}
-.rbox iframe,.rimg{display:block;width:100%;aspect-ratio:1/1;max-width:100%;border:0}
-.rimg{display:grid;place-items:center;background:#fff;overflow:hidden;text-decoration:none}
-.rimg img{width:100%;height:100%;object-fit:contain}
-.rimg .note{padding:16px;text-align:center}
+.rbox iframe{display:block;width:100%;aspect-ratio:1/1;max-width:100%;border:0}
+.rmap{width:100%;aspect-ratio:1/1;max-width:100%;position:relative;z-index:0}
+.rctl{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--line)}
+.rctl button{font:500 13px var(--body);color:var(--accent);background:none;border:1px solid var(--line);padding:6px 10px;cursor:pointer}
+.rctl button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+.rleg{height:22px;width:auto;max-width:60%;background:#fff;padding:2px}
 @media (max-width:700px){.radar2{grid-template-columns:minmax(0,1fr)}}
 .links{margin-top:8px}.links a{color:var(--accent)}
 /* secções com mapa */
@@ -324,10 +326,11 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
     <div class="radar2">
       <figure class="rbox">
         <figcaption><span>Radar de precipitação · IPMA</span><em id="radarTime">a carregar…</em></figcaption>
-        <a class="rimg" href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">
-          <img id="radarImg" alt="Imagem do radar de precipitação do IPMA (Coruche), que cobre Almeirim" hidden>
-          <span id="radarMsg" class="note">A carregar a imagem do radar…</span>
-        </a>
+        <div class="rmap" id="mapRadar" role="img" aria-label="Mapa do radar de precipitação do IPMA centrado em Almeirim"></div>
+        <div class="rctl">
+          <button type="button" id="radarPlay" aria-pressed="false">▶ Animar última hora</button>
+          <img src="https://www.ipma.pt/resources.www/transf/radar/png-geo/legenda-radar.png" alt="Legenda: intensidade de precipitação em mm/h" class="rleg" loading="lazy">
+        </div>
       </figure>
       <figure class="rbox">
         <figcaption><span>Trovoadas em tempo real · Blitzortung</span><em>últimas horas</em></figcaption>
@@ -697,24 +700,44 @@ function renderTejoChart(){
 }
 addEventListener("resize",()=>{clearTimeout(window._tj);window._tj=setTimeout(renderTejoChart,150)});
 
-/* ---------- radar do IPMA (cópia guardada pelo GitHub) ---------- */
+/* ---------- radar do IPMA (mapa com as imagens do mosaico do Continente) ---------- */
+let radar={frames:[],layer:null,idx:-1,timer:null,map:null};
+function showRadarFrame(i){
+  const f=radar.frames[i];if(!f||!radar.map)return;
+  radar.idx=i;
+  if(!radar.layer){radar.layer=L.imageOverlay(f.url,radar.bounds,{opacity:.8,interactive:false}).addTo(radar.map)}
+  else radar.layer.setUrl(f.url);
+  const old=Date.now()-Date.parse(f.time)>45*60e3;
+  $("radarTime").innerHTML=hhmm(Date.parse(f.time))+(old&&!radar.timer?' <span class="stale">· sem imagem recente</span>':"");
+}
+function stopRadar(){clearInterval(radar.timer);radar.timer=null;$("radarPlay").textContent="▶ Animar última hora";$("radarPlay").setAttribute("aria-pressed","false");showRadarFrame(radar.frames.length-1)}
+function playRadar(){
+  if(radar.timer){stopRadar();return}
+  const n=radar.frames.length;if(n<2)return;
+  const start=Math.max(0,n-13); // última hora: 13 imagens de 5 em 5 minutos
+  radar.frames.slice(start).forEach(f=>{const im=new Image();im.src=f.url}); // pré-carregar
+  let i=start;$("radarPlay").textContent="⏸ Parar";$("radarPlay").setAttribute("aria-pressed","true");
+  radar.timer=setInterval(()=>{showRadarFrame(i);i=i+1>=n?start:i+1},700);
+}
 async function loadRadar(){
-  const img=$("radarImg"),msg=$("radarMsg");
   try{
     const r=await fetch("data/radar-ipma.json",{cache:"no-store"});if(!r.ok)throw 0;
-    const j=await r.json();if(!j.file)throw 0;
-    img.onload=()=>{img.hidden=false;msg.hidden=true};
-    img.onerror=()=>{img.hidden=true;msg.hidden=false;msg.textContent="Imagem do radar indisponível. Toque para abrir o radar no site do IPMA."};
-    img.src="data/"+j.file+"?t="+Date.parse(j.fetched_at);
-    const t=j.last_modified?Date.parse(j.last_modified):Date.parse(j.fetched_at);
-    $("radarTime").textContent=(j.last_modified?"imagem das ":"copiada às ")+hhmm(t);
+    const j=await r.json();if(!j.frames||!j.frames.length)throw 0;
+    radar.frames=j.frames;radar.bounds=j.bounds;
   }catch(e){
-    img.hidden=true;msg.hidden=false;
-    msg.textContent="Imagem do radar ainda indisponível. Toque para abrir o radar no site do IPMA.";
-    $("radarTime").textContent="";
+    $("radarTime").textContent="indisponível";
+    if(!radar.map)$("mapRadar").innerHTML='<div class="note map-fallback">Imagem do radar indisponível. <a href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">Abrir o radar no site do IPMA</a>.</div>';
+    return;
   }
+  if(!radar.map){
+    radar.map=baseMap("mapRadar",{labels:true,zoomControl:true});
+    if(!radar.map)return;
+    radar.map.setView([39.21,-8.63],8);
+    L.circleMarker([39.205,-8.627],{radius:5,weight:2,color:"#fff",fillColor:"#c8423b",fillOpacity:1}).bindTooltip("Almeirim").addTo(radar.map);
+    $("radarPlay").onclick=playRadar;
+  }
+  if(!radar.timer)showRadarFrame(radar.frames.length-1);
 }
-load(); setInterval(load,5*60*1000);
 loadRadar(); setInterval(loadRadar,5*60*1000);
 loadAvisos(); loadRCM(); loadTejo();
 setInterval(()=>{loadAvisos();loadRCM()},30*60*1000);
