@@ -251,6 +251,30 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
 
   <section>
     <div class="sec-hd">
+      <h3>Radar de chuva e trovoada</h3>
+    </div>
+    <div class="radar2">
+      <figure class="rbox">
+        <figcaption><span>Radar de precipitação · IPMA</span><em id="radarTime">a carregar…</em></figcaption>
+        <div class="rmap" id="mapRadar" role="img" aria-label="Mapa do radar de precipitação do IPMA centrado em Almeirim"></div>
+        <div class="rctl">
+          <button type="button" id="radarPlay" aria-pressed="false">▶ Animar última hora</button>
+          <img src="https://www.ipma.pt/resources.www/transf/radar/png-geo/legenda-radar.png" alt="Legenda: intensidade de precipitação em mm/h" class="rleg" loading="lazy">
+        </div>
+      </figure>
+      <figure class="rbox">
+        <figcaption><span>Trovoadas em tempo real · Blitzortung</span><em>últimas horas</em></figcaption>
+        <iframe title="Mapa de descargas elétricas em tempo real centrado em Almeirim (Blitzortung)" loading="lazy"
+          src="https://map.blitzortung.org/index.php?interactive=1&amp;NavigationControl=1&amp;FullScreenControl=0&amp;Cookies=0&amp;InfoDiv=0&amp;MenuButtonDiv=0&amp;ScaleControl=1&amp;LinksCheckboxChecked=1&amp;LinksRangeValue=10&amp;MapStyle=2&amp;MapStyleRangeValue=10&amp;Advertisment=0#8/39.21/-8.63"></iframe>
+      </figure>
+    </div>
+    <div class="note links">Fontes: <a href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">radar do IPMA</a> (cópia atualizada de 10 em 10 minutos) ·
+      <a href="https://www.lightningmaps.org/?lang=pt#m=oss;t=3;s=0;o=0;b=;ts=0;y=39.21;x=-8.63;z=8;d=2;dl=2;dc=0;" target="_blank" rel="noopener">Blitzortung.org / LightningMaps</a>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-hd">
       <h3>Previsão para 7 dias</h3>
       <span class="note">Almeirim · meteoblue</span>
     </div>
@@ -317,30 +341,6 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       <span><i class="r1"></i>Reduzido</span><span><i class="r2"></i>Moderado</span><span><i class="r3"></i>Elevado</span><span><i class="r4"></i>Muito elevado</span><span><i class="r5"></i>Máximo</span>
     </div>
     <div class="note links">Risco de incêndio rural do IPMA por concelho, distrito de Santarém. Toque num concelho para ver o nome e o risco.</div>
-  </section>
-
-  <section>
-    <div class="sec-hd">
-      <h3>Radar de chuva e trovoada</h3>
-    </div>
-    <div class="radar2">
-      <figure class="rbox">
-        <figcaption><span>Radar de precipitação · IPMA</span><em id="radarTime">a carregar…</em></figcaption>
-        <div class="rmap" id="mapRadar" role="img" aria-label="Mapa do radar de precipitação do IPMA centrado em Almeirim"></div>
-        <div class="rctl">
-          <button type="button" id="radarPlay" aria-pressed="false">▶ Animar última hora</button>
-          <img src="https://www.ipma.pt/resources.www/transf/radar/png-geo/legenda-radar.png" alt="Legenda: intensidade de precipitação em mm/h" class="rleg" loading="lazy">
-        </div>
-      </figure>
-      <figure class="rbox">
-        <figcaption><span>Trovoadas em tempo real · Blitzortung</span><em>últimas horas</em></figcaption>
-        <iframe title="Mapa de descargas elétricas em tempo real centrado em Almeirim (Blitzortung)" loading="lazy"
-          src="https://map.blitzortung.org/index.php?interactive=1&amp;NavigationControl=1&amp;FullScreenControl=0&amp;Cookies=0&amp;InfoDiv=0&amp;MenuButtonDiv=0&amp;ScaleControl=1&amp;LinksCheckboxChecked=1&amp;LinksRangeValue=10&amp;MapStyle=2&amp;MapStyleRangeValue=10&amp;Advertisment=0#8/39.21/-8.63"></iframe>
-      </figure>
-    </div>
-    <div class="note links">Fontes: <a href="https://www.ipma.pt/pt/otempo/obs.remote/" target="_blank" rel="noopener">radar do IPMA</a> (cópia atualizada de 10 em 10 minutos) ·
-      <a href="https://www.lightningmaps.org/?lang=pt#m=oss;t=3;s=0;o=0;b=;ts=0;y=39.21;x=-8.63;z=8;d=2;dl=2;dc=0;" target="_blank" rel="noopener">Blitzortung.org / LightningMaps</a>
-    </div>
   </section>
 
   <footer>
