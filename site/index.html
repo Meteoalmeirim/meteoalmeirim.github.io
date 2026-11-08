@@ -55,6 +55,9 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,34px);lin
 .bar{height:6px;background:var(--line);position:relative;margin-top:4px}
 .bar i{position:absolute;inset:0 auto 0 0;background:var(--accent)}
 section h3{font-family:var(--display);font-weight:700;font-size:20px;margin:0 0 12px}
+.fogos{border:1px solid var(--line);background:var(--surface)}
+.fogos iframe{display:block;border:0;width:100%;height:640px;max-width:100%}
+@media (max-width:600px){.fogos iframe{height:560px}}
 .forecast{background:#fff;border:1px solid var(--line);overflow-x:auto;-webkit-overflow-scrolling:touch}
 .forecast iframe{display:block;border:0;width:100%;min-width:760px;height:580px}
 .charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -344,6 +347,18 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       </table></div>
     </details>
     <div class="note links">Fonte: <a href="https://infoagua.apambiente.pt/pt/cheias/cheias-pesquisa" target="_blank" rel="noopener">APA · InfoÁgua / SNIRH</a>, rede de vigilância e alerta de cheias. Dados provisórios, recolhidos de 30 em 30 minutos. Posição dos pontos aproximada.</div>
+  </section>
+
+  <section>
+    <div class="sec-hd">
+      <h3>Ocorrências no concelho de Almeirim</h3>
+      <span class="note">Proteção civil · fogos.pt</span>
+    </div>
+    <div class="fogos">
+      <iframe title="Mapa das ocorrências de proteção civil no concelho de Almeirim (fogos.pt)" loading="lazy"
+        src="https://fogos.pt/pt/mapa?c=1403&amp;k=todos" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+    <div class="note links">Fonte: <a href="https://fogos.pt/pt/mapa?c=1403&amp;k=todos" target="_blank" rel="noopener">fogos.pt</a>, com dados da ANEPC. Toque para abrir o mapa em ecrã inteiro.</div>
   </section>
 
   <footer>
