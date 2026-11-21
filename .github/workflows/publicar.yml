@@ -24,8 +24,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - name: Recolher dados do Tejo (APA / SNIRH)
@@ -40,9 +40,17 @@ jobs:
       - name: Lista de imagens do radar do IPMA
         run: node tools/radar-ipma.mjs
       - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: site
       - name: Publicar
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+      # O GitHub às vezes ainda não "vê" o pacote acabado de enviar; espera um pouco e tenta outra vez.
+      - name: Aguardar antes de nova tentativa
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 20
+      - name: Publicar (2.ª tentativa)
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
