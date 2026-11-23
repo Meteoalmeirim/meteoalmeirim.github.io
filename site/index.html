@@ -44,7 +44,8 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,34px);lin
 .range .v{font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums}
 .range .k{font-size:12px;color:var(--muted)}
 .hi{color:var(--warm)}.lo{color:var(--cool)}
-.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.uv-lvl{font-family:var(--body);font-size:12px;font-weight:600;padding:2px 8px;margin-left:8px;vertical-align:4px;color:#1a1a1a}
 .card{background:var(--surface);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .card h2{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0}
 .big{font-family:var(--mono);font-size:30px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}
@@ -241,6 +242,16 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       <div class="big"><span id="rain">--</span><small>mm hoje</small></div>
       <div class="note">intensidade <b id="rrate">--</b> mm/h</div>
     </div>
+    <div class="card">
+      <h2>Índice UV</h2>
+      <div class="big"><span id="uv">--</span><small id="uvLvl"></small></div>
+      <div class="note">máximo hoje <b id="uvmax">--</b></div>
+    </div>
+    <div class="card">
+      <h2>Radiação solar</h2>
+      <div class="big"><span id="sol">--</span><small>W/m²</small></div>
+      <div class="note">máximo hoje <b id="solmax">--</b> W/m²</div>
+    </div>
   </div>
 
   <section>
@@ -250,6 +261,8 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       <div class="chart"><div class="hd"><span>Vento médio e rajada</span><em id="c2">km/h</em></div><svg id="chWind"></svg></div>
       <div class="chart"><div class="hd"><span>Pressão</span><em id="c3">hPa</em></div><svg id="chPres"></svg></div>
       <div class="chart"><div class="hd"><span>Chuva acumulada</span><em id="c4">mm</em></div><svg id="chRain"></svg></div>
+      <div class="chart"><div class="hd"><span>Radiação solar</span><em>W/m²</em></div><svg id="chSol"></svg></div>
+      <div class="chart"><div class="hd"><span>Índice UV</span><em>UV</em></div><svg id="chUV"></svg></div>
     </div>
   </section>
 
@@ -393,7 +406,7 @@ async function load(){
     const [cur,day]=await Promise.all([getJSON(BASE+"current?"+q),getJSON(BASE+"all/1day?"+q)]);
     $("error").hidden=true;
     history=(day.observations||[]).map(o=>({t:o.epoch*1000,temp:o.metric.tempAvg,tmax:o.metric.tempHigh,tmin:o.metric.tempLow,
-      dew:o.metric.dewptAvg,ws:o.metric.windspeedAvg,wg:o.metric.windgustHigh,p:o.metric.pressureMax,rain:o.metric.precipTotal}))
+      dew:o.metric.dewptAvg,ws:o.metric.windspeedAvg,wg:o.metric.windgustHigh,p:o.metric.pressureMax,rain:o.metric.precipTotal,uv:o.uvHigh,sol:o.solarRadiationHigh}))
       .sort((a,b)=>a.t-b.t);
     renderCurrent(cur.observations[0]);
     renderCharts();
@@ -423,12 +436,20 @@ function renderCurrent(o){
   $("rain").textContent=f(m.precipTotal);
   $("rtoday").textContent=f(m.precipTotal)+" mm";
   $("rrate").textContent=f(m.precipRate);
+  // UV (escala da OMS) e radiação solar
+  const UVL=[[3,"Baixo","#3f9e4d"],[6,"Moderado","#f2d43b"],[8,"Elevado","#ee8a24"],[11,"Muito elevado","#d52b24"],[99,"Extremo","#8e44ad"]];
+  if(o.uv!=null){const u=Number(o.uv),l=UVL.find(x=>u<x[0]);$("uv").textContent=f(u,0);
+    $("uvLvl").className="uv-lvl";$("uvLvl").textContent=l[1];$("uvLvl").style.background=l[2];$("uvLvl").style.color=u>=8&&u<11||u>=11?"#fff":"#1a1a1a"}
+  $("sol").textContent=o.solarRadiation==null?"--":f(o.solarRadiation,0);
   // máximos e mínimos de hoje (dia local)
   const today=new Date(ms).toLocaleDateString("pt-PT",{timeZone:"Europe/Lisbon"});
   const h=history.filter(x=>new Date(x.t).toLocaleDateString("pt-PT",{timeZone:"Europe/Lisbon"})===today);
   if(h.length){
     $("tmax").textContent=f(Math.max(...h.map(x=>x.tmax),m.temp))+" °C";
     $("tmin").textContent=f(Math.min(...h.map(x=>x.tmin),m.temp))+" °C";
+    const mx=k=>{const v=h.map(x=>x[k]).filter(v=>v!=null);return v.length?Math.max(...v):null};
+    $("uvmax").textContent=mx("uv")==null?"--":f(Math.max(mx("uv"),o.uv??0),0);
+    $("solmax").textContent=mx("sol")==null?"--":f(Math.max(mx("sol"),o.solarRadiation??0),0);
     $("gmax").textContent=f(Math.max(...h.map(x=>x.wg??0),m.windGust??0))+" km/h";
   }
   const past=history.filter(x=>x.t<=ms-3*3600e3).pop();
@@ -469,6 +490,8 @@ function renderCharts(){
   chart($("chWind"),[{data:h.map(x=>({t:x.t,v:x.ws})),color:css("--accent")},{data:h.map(x=>({t:x.t,v:x.wg})),color:css("--muted"),w:1.2,dash:1}],{zero:1,fill:1,pad:10});
   chart($("chPres"),[{data:h.map(x=>({t:x.t,v:x.p})),color:css("--accent")}],{pad:3});
   chart($("chRain"),[{data:h.map(x=>({t:x.t,v:x.rain})),color:css("--rain")}],{zero:1,fill:1,pad:2});
+  chart($("chSol"),[{data:h.map(x=>({t:x.t,v:x.sol})),color:css("--warm")}],{zero:1,fill:1,pad:50});
+  chart($("chUV"),[{data:h.map(x=>({t:x.t,v:x.uv})),color:"#8e44ad"}],{zero:1,fill:1,pad:3});
   $("c1").textContent="°C · orvalho a tracejado";
   $("c2").textContent="km/h · rajada a tracejado";
 }

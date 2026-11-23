@@ -39,12 +39,6 @@ jobs:
           PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
       - name: Lista de imagens do radar do IPMA
         run: node tools/radar-ipma.mjs
-      - name: Diagnóstico estação (temporário)
-        continue-on-error: true
-        run: |
-          K=$(grep -o 'KEY="[0-9a-f]*"' site/index.html | cut -d'"' -f2)
-          curl -s -m 20 "https://api.weather.com/v2/pws/observations/current?stationId=IALMEI2&format=json&units=m&numericPrecision=decimal&apiKey=$K" -o cur.json -w "STADIAG http %{http_code}\n"
-          echo "STADIAG $(cat cur.json)"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
