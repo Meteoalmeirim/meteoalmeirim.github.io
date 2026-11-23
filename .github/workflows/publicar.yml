@@ -39,6 +39,20 @@ jobs:
           PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
       - name: Lista de imagens do radar do IPMA
         run: node tools/radar-ipma.mjs
+      - name: Diagnóstico Ecowitt (temporário)
+        continue-on-error: true
+        run: |
+          K="application_key=CB3440D921EB4A773E0E5818ED5CF050&api_key=af5a5b03-2c2e-46d3-acfc-e21abc8137b8&mac=C8:85:41:0C:B7:4F&temp_unitid=1&pressure_unitid=3&wind_speed_unitid=7&rainfall_unitid=12&solar_irradiance_unitid=16&lightning_unitid=1"
+          curl -s -m 20 "https://api.ecowitt.net/api/v3/device/real_time?$K&call_back=all" -o rt.json
+          echo "ECORT $(jq -c '.data|del(.lightning)' rt.json)"
+          S=$(date -u -d '-24 hours' '+%Y-%m-%d %H:%M:%S'); E=$(date -u '+%Y-%m-%d %H:%M:%S')
+          echo "ECOTZ server-now-utc $E"
+          curl -s -m 30 -G -D hh.txt -H "Origin: https://meteoalmeirim.github.io" "https://api.ecowitt.net/api/v3/device/history?$K" --data-urlencode "start_date=$S" --data-urlencode "end_date=$E" --data-urlencode "cycle_type=5min" --data-urlencode "call_back=outdoor.temperature,outdoor.dew_point,wind.wind_speed,wind.wind_gust,pressure.relative,rainfall_piezo.daily,solar_and_uvi.solar,solar_and_uvi.uvi" -o hist.json
+          grep -iE "^HTTP|access-control-allow-origin" hh.txt | sed 's/^/ECOHH /'
+          echo "ECOHIST code $(jq -c '.code,.msg' hist.json)"
+          echo "ECOHIST temp $(jq -c '.data.outdoor.temperature|{unit,n:(.list|length),first:(.list|to_entries|.[0:2]),last:(.list|to_entries|.[-2:])}' hist.json)"
+          echo "ECOHIST rain $(jq -c '.data.rainfall_piezo.daily|{unit,n:(.list|length),last:(.list|to_entries|.[-2:])}' hist.json)"
+          echo "ECOHIST keys $(jq -c '.data|to_entries|map({(.key):(.value|keys)})' hist.json)"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
