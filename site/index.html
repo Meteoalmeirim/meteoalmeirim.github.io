@@ -45,6 +45,17 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,34px);lin
 .range .k{font-size:12px;color:var(--muted)}
 .hi{color:var(--warm)}.lo{color:var(--cool)}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.card.light{grid-column:1/-1;flex-direction:row;align-items:center;gap:16px}
+.card.light .bolt{width:34px;height:34px;flex:none;fill:var(--muted)}
+.card.light .light-txt{flex:1;min-width:0}
+.card.light .light-main{font-weight:600;font-size:16px}
+.light-count{text-align:right;font-family:var(--mono)}
+.light-count span{display:block;font-size:30px;font-weight:500;line-height:1.1}
+.light-count small{font-family:var(--body);font-size:12px;color:var(--muted)}
+.card.light.recent{border-color:#d6322b;background:color-mix(in srgb,#d6322b 8%,var(--surface))}
+.card.light.recent .bolt{fill:#f2c522}
+.card.light.today .bolt{fill:#f08a24}
+@media (max-width:520px){.card.light{flex-wrap:wrap}.light-count{text-align:left}}
 .uv-lvl{font-family:var(--body);font-size:12px;font-weight:600;padding:2px 8px;margin-left:8px;vertical-align:4px;color:#1a1a1a}
 .card{background:var(--surface);border:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .card h2{font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0}
@@ -251,6 +262,15 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       <h2>Radiação solar</h2>
       <div class="big"><span id="sol">--</span><small>W/m²</small></div>
       <div class="note">máximo hoje <b id="solmax">--</b> W/m²</div>
+    </div>
+    <div class="card light" id="lightCard">
+      <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 13h6l-1 9 8-12h-6z"/></svg>
+      <div class="light-txt">
+        <h2>Trovoada em Almeirim · detetor da estação</h2>
+        <div class="light-main" id="lightMain">A ligar ao detetor…</div>
+        <div class="note" id="lightNote">Deteta descargas elétricas até 40 km.</div>
+      </div>
+      <div class="light-count"><span id="lightN">--</span><small>descargas hoje</small></div>
     </div>
   </div>
 
@@ -809,7 +829,34 @@ async function loadVisits(){
     $("visitsN").textContent=String(j.count).replace(/[,\u202f ]/g,".");$("visits").hidden=false;
   }catch(e){$("visits").hidden=true}
 }
+/* ---------- detetor de trovoadas WH57 (Ecowitt) ---------- */
+const ECO="https://api.ecowitt.net/api/v3/device/real_time?application_key=CB3440D921EB4A773E0E5818ED5CF050&api_key=af5a5b03-2c2e-46d3-acfc-e21abc8137b8&mac=C8:85:41:0C:B7:4F&call_back=lightning&lightning_unitid=1";
+function agoTxt(ms){const m=Math.round((Date.now()-ms)/60000);if(m<1)return "agora mesmo";if(m<60)return "há "+m+" min";const h=Math.floor(m/60);return h<24?"há "+h+" h"+(m%60?" "+(m%60)+" min":""):"há mais de um dia"}
+async function loadLightning(){
+  const card=$("lightCard");
+  try{
+    const r=await fetch(ECO);if(!r.ok)throw 0;
+    const j=await r.json();if(j.code!==0||!j.data||!j.data.lightning)throw 0;
+    const L=j.data.lightning,n=Number(L.count?.value??0),d=L.distance;
+    $("lightN").textContent=isNaN(n)?"--":n;
+    let main,note="Deteta descargas elétricas até 40 km.",cls="";
+    if(d&&d.value!==""&&d.value!=null){
+      const t=Number(d.time)*1000,km=f(Number(d.value),0);
+      main=`Última descarga a ${km} km, ${agoTxt(t)}`;
+      note=`Registada às ${hhmm(t)}. A distância é uma estimativa do detetor.`;
+      cls=Date.now()-t<3600e3?"recent":(n>0?"today":"");
+    }else if(n>0){main="Descargas detetadas hoje";cls="today"}
+    else main="Sem descargas detetadas hoje";
+    if(cls==="recent")note="⚠ Trovoada próxima na última hora. "+note;
+    $("lightMain").textContent=main;$("lightNote").textContent=note;
+    card.className="card light "+cls;
+  }catch(e){
+    $("lightMain").textContent="Detetor de trovoadas sem ligação de momento";
+    $("lightN").textContent="--";card.className="card light";
+  }
+}
 load(); setInterval(load,5*60*1000);
+loadLightning(); setInterval(loadLightning,2*60*1000);
 loadVisits();
 loadRadar(); setInterval(loadRadar,5*60*1000);
 loadAvisos(); loadRCM(); loadTejo();
