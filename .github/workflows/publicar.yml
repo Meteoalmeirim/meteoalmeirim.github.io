@@ -39,6 +39,13 @@ jobs:
           PREVIOUS_URL="$SITE/data/tejo.json" node tools/tejo.mjs
       - name: Lista de imagens do radar do IPMA
         run: node tools/radar-ipma.mjs
+      - name: Diagnóstico Ecowitt (temporário)
+        continue-on-error: true
+        run: |
+          U="https://api.ecowitt.net/api/v3/device/real_time?application_key=CB3440D921EB4A773E0E5818ED5CF050&api_key=af5a5b03-2c2e-46d3-acfc-e21abc8137b8&mac=C8:85:41:0C:B7:4F&call_back=all&temp_unitid=1&pressure_unitid=3&wind_speed_unitid=7&rainfall_unitid=12"
+          curl -s -m 20 -D hdr.txt -H "Origin: https://meteoalmeirim.github.io" "$U" -o rt.json
+          grep -iE "^HTTP|access-control" hdr.txt | sed 's/^/ECODIAG /'
+          echo "ECODIAG $(cat rt.json)"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
