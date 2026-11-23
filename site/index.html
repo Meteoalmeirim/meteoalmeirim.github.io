@@ -79,6 +79,7 @@ section h3{font-family:var(--display);font-weight:700;font-size:20px;margin:0 0 
 .chart .hd em{font-style:normal;font-family:var(--mono);font-size:12px;color:var(--muted)}
 .chart svg{display:block;width:100%;height:170px;margin-top:6px}
 .chart text{font-family:var(--mono);font-size:10px;fill:var(--muted)}
+.batt{color:#b07d10}
 .visits b{font-family:var(--mono);font-weight:500;color:var(--fg)}
 .err{background:var(--surface);border:1px solid #c8423b;padding:14px 16px}
 footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between}
@@ -209,6 +210,7 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       <div class="sub">
         <span>Sensação <b id="feels">--</b></span>
         <span>Ponto de orvalho <b id="dew">--</b></span>
+        <span id="indoorWrap" hidden>Interior <b id="indoor">--</b></span>
       </div>
     </div>
     <div class="range">
@@ -252,6 +254,7 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
       <h2>Chuva</h2>
       <div class="big"><span id="rain">--</span><small>mm hoje</small></div>
       <div class="note">intensidade <b id="rrate">--</b> mm/h</div>
+      <div class="note" id="rainMore" hidden>mês <b id="rmonth">--</b> mm · ano <b id="ryear">--</b> mm</div>
     </div>
     <div class="card">
       <h2>Índice UV</h2>
@@ -395,7 +398,8 @@ details.more summary{cursor:pointer;font-weight:600;color:var(--accent);padding:
   </section>
 
   <footer>
-    <span>Dados da estação via Weather Underground · atualiza a cada 5 minutos</span>
+    <span>Dados da estação via <span id="srcName">Ecowitt</span> · atualiza a cada 5 minutos</span>
+    <span class="batt" id="batt" hidden></span>
     <span class="visits" id="visits" hidden><b id="visitsN"></b> visitas</span>
     <a href="https://www.wunderground.com/dashboard/pws/IALMEI2" target="_blank" rel="noopener">Ver no Weather Underground</a>
   </footer>
@@ -412,6 +416,48 @@ const dirName=d=>d==null?"--":DIRS[Math.round(d/22.5)%16];
 const hhmm=ms=>new Date(ms).toLocaleTimeString("pt-PT",{hour:"2-digit",minute:"2-digit",timeZone:"Europe/Lisbon"});
 const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 let history=[];
+// Estação Ecowitt (fonte principal); o Weather Underground fica como reserva.
+const ECO_KEYS="application_key=CB3440D921EB4A773E0E5818ED5CF050&api_key=af5a5b03-2c2e-46d3-acfc-e21abc8137b8&mac=C8:85:41:0C:B7:4F";
+const ECO_UNITS="temp_unitid=1&pressure_unitid=3&wind_speed_unitid=7&rainfall_unitid=12&solar_irradiance_unitid=16&lightning_unitid=1";
+const ECO_API="https://api.ecowitt.net/api/v3/device/";
+const num=x=>{if(!x||x.value===""||x.value==null)return null;const n=Number(x.value);return isNaN(n)?null:n};
+const lisbonStr=ms=>new Date(ms).toLocaleString("sv-SE",{timeZone:"Europe/Lisbon"}); // AAAA-MM-DD HH:MM:SS
+async function ecoJSON(url){
+  const r=await fetch(url);if(!r.ok)throw new Error("Ecowitt HTTP "+r.status);
+  const j=await r.json();if(j.code!==0||!j.data)throw new Error("Ecowitt: "+(j.msg||"sem dados"));
+  return j.data;
+}
+async function loadEcowitt(){
+  const now=Date.now();
+  const hq=new URLSearchParams({start_date:lisbonStr(now-25*3600e3),end_date:lisbonStr(now+3600e3),cycle_type:"5min",
+    call_back:"outdoor.temperature,outdoor.dew_point,wind.wind_speed,wind.wind_gust,pressure.relative,rainfall_piezo.daily,solar_and_uvi.solar,solar_and_uvi.uvi"});
+  const [rt,hi]=await Promise.all([
+    ecoJSON(`${ECO_API}real_time?${ECO_KEYS}&${ECO_UNITS}&call_back=all`),
+    ecoJSON(`${ECO_API}history?${ECO_KEYS}&${ECO_UNITS}&${hq}`).catch(()=>null)]);
+  const O=rt.outdoor||{},W=rt.wind||{},P=rt.pressure||{},R=rt.rainfall_piezo||rt.rainfall||{},S=rt.solar_and_uvi||{},I=rt.indoor||{};
+  const tsec=Number(O.temperature?.time||W.wind_speed?.time||0);
+  if(!tsec||num(O.temperature)==null)throw new Error("Ecowitt sem leitura exterior");
+  const o={epoch:tsec,humidity:num(O.humidity),winddir:num(W.wind_direction),uv:num(S.uvi),solarRadiation:num(S.solar),
+    feels:num(O.feels_like),indoorT:num(I.temperature),indoorH:num(I.humidity),
+    rainMonth:num(R.monthly),rainYear:num(R.yearly),battery:rt.battery||null,
+    metric:{temp:num(O.temperature),dewpt:num(O.dew_point),windSpeed:num(W.wind_speed),windGust:num(W.wind_gust),
+      pressure:num(P.relative),precipTotal:num(R.daily),precipRate:num(R.rain_rate)}};
+  // histórico de 5 em 5 minutos (últimas 24 h)
+  const H=hi||{},series={temp:H.outdoor?.temperature,dew:H.outdoor?.dew_point,ws:H.wind?.wind_speed,wg:H.wind?.wind_gust,
+    p:H.pressure?.relative,rain:(H.rainfall_piezo||H.rainfall)?.daily,sol:H.solar_and_uvi?.solar,uv:H.solar_and_uvi?.uvi};
+  const rows={};
+  for(const [k,sr] of Object.entries(series)){const l=sr&&sr.list;if(!l)continue;
+    for(const [ts,v] of Object.entries(l)){const t=Number(ts)*1000;if(!(t>now-24*3600e3))continue;const n=Number(v);if(v===""||isNaN(n))continue;(rows[t]??={t})[k]=n}}
+  const hist=Object.values(rows).sort((a,b)=>a.t-b.t).map(r=>({...r,tmax:r.temp,tmin:r.temp}));
+  return {o,hist};
+}
+async function loadWU(){
+  const [cur,day]=await Promise.all([getJSON(BASE+"current?"+q),getJSON(BASE+"all/1day?"+q)]);
+  const hist=(day.observations||[]).map(o=>({t:o.epoch*1000,temp:o.metric.tempAvg,tmax:o.metric.tempHigh,tmin:o.metric.tempLow,
+    dew:o.metric.dewptAvg,ws:o.metric.windspeedAvg,wg:o.metric.windgustHigh,p:o.metric.pressureMax,rain:o.metric.precipTotal,uv:o.uvHigh,sol:o.solarRadiationHigh}))
+    .sort((a,b)=>a.t-b.t);
+  return {o:cur.observations[0],hist};
+}
 
 async function getJSON(url){
   const r=await fetch(url);
@@ -423,12 +469,15 @@ async function getJSON(url){
 
 async function load(){
   try{
-    const [cur,day]=await Promise.all([getJSON(BASE+"current?"+q),getJSON(BASE+"all/1day?"+q)]);
+    let res,src="Ecowitt";
+    try{res=await loadEcowitt();
+      // se a Ecowitt não trouxer histórico (ou vier atrasada mais de 30 min), usa o Weather Underground
+      if(res.hist.length<6||Date.now()-res.o.epoch*1000>30*60e3)throw new Error("Ecowitt incompleta");
+    }catch(e){res=await loadWU();src="Weather Underground (reserva)"}
     $("error").hidden=true;
-    history=(day.observations||[]).map(o=>({t:o.epoch*1000,temp:o.metric.tempAvg,tmax:o.metric.tempHigh,tmin:o.metric.tempLow,
-      dew:o.metric.dewptAvg,ws:o.metric.windspeedAvg,wg:o.metric.windgustHigh,p:o.metric.pressureMax,rain:o.metric.precipTotal,uv:o.uvHigh,sol:o.solarRadiationHigh}))
-      .sort((a,b)=>a.t-b.t);
-    renderCurrent(cur.observations[0]);
+    $("srcName").textContent=src;
+    history=res.hist;
+    renderCurrent(res.o);
     renderCharts();
   }catch(e){
     $("error").hidden=false;
@@ -443,7 +492,16 @@ function renderCurrent(o){
   $("dot").className="dot "+(age<20?"ok":"old");
   $("updated").textContent="Leitura das "+hhmm(ms)+(age>=20?" · sem dados recentes":"");
   $("t").textContent=f(m.temp);
-  const feels=m.temp>=27?m.heatIndex:(m.temp<=10?m.windChill:m.temp);
+  const feels=o.feels!=null?o.feels:(m.temp>=27?m.heatIndex:(m.temp<=10?m.windChill:m.temp));
+  // dados extra da Ecowitt
+  $("indoorWrap").hidden=o.indoorT==null;
+  if(o.indoorT!=null)$("indoor").textContent=f(o.indoorT)+" °C"+(o.indoorH!=null?" · "+f(o.indoorH,0)+" %":"");
+  $("rainMore").hidden=o.rainMonth==null&&o.rainYear==null;
+  $("rmonth").textContent=f(o.rainMonth);$("ryear").textContent=f(o.rainYear);
+  const low=[];const B=o.battery||{};
+  const bv=num(B.haptic_array_battery);if(bv!=null&&bv<2.4)low.push("sensor exterior");
+  const bl=num(B.lightning_sensor);if(bl!=null&&bl<=1)low.push("detetor de trovoadas");
+  $("batt").hidden=!low.length;$("batt").textContent=low.length?"⚠ Bateria fraca: "+low.join(", "):"";
   $("feels").textContent=f(feels)+" °C";
   $("dew").textContent=f(m.dewpt)+" °C";
   $("ws").textContent=f(m.windSpeed);
@@ -830,7 +888,7 @@ async function loadVisits(){
   }catch(e){$("visits").hidden=true}
 }
 /* ---------- detetor de trovoadas WH57 (Ecowitt) ---------- */
-const ECO="https://api.ecowitt.net/api/v3/device/real_time?application_key=CB3440D921EB4A773E0E5818ED5CF050&api_key=af5a5b03-2c2e-46d3-acfc-e21abc8137b8&mac=C8:85:41:0C:B7:4F&call_back=lightning&lightning_unitid=1";
+const ECO=`${ECO_API}real_time?${ECO_KEYS}&call_back=lightning&lightning_unitid=1`;
 function agoTxt(ms){const m=Math.round((Date.now()-ms)/60000);if(m<1)return "agora mesmo";if(m<60)return "há "+m+" min";const h=Math.floor(m/60);return h<24?"há "+h+" h"+(m%60?" "+(m%60)+" min":""):"há mais de um dia"}
 async function loadLightning(){
   const card=$("lightCard");
